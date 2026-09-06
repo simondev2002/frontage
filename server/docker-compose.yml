@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATA_DIR=/data
+      - TRUST_PROXY=true
+    volumes:
+      - ./data:/data
+      - ./certs:/app/certs:ro
+      - ./keys:/app/keys:ro
+    expose: ["5150"]
+  caddy:
+    build: ./caddy
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      - APP_HOST=${APP_HOST}
+      - SITES_DOMAIN=${SITES_DOMAIN}
+      - ACME_EMAIL=${ACME_EMAIL:-hello@frontageweb.com}
+      - CF_API_TOKEN=${CF_API_TOKEN}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+volumes:
+  caddy_data:
+  caddy_config:

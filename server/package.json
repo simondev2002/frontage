@@ -1,0 +1,20 @@
+{
+  "name": "frontage-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Frontage API + site hosting: AI website builder backend for the Frontage iOS app",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "render:demo": "node scripts/render-demo.js",
+    "certs": "node scripts/fetch-apple-certs.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
+    "@apple/app-store-server-library": "^3.1.0",
+    "zod": "^4.5.4"
+  }
+}

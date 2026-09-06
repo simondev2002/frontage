@@ -1,0 +1,31 @@
+# Caddy in front of the Frontage app.
+#  - app.frontageweb.com      : API + landing (this file's APP_HOST)
+#  - *.frontageweb.com        : customer subdomains (wildcard cert via Cloudflare DNS challenge)
+#  - any other host         : customer custom domains, certificates issued on demand
+{
+	email {$ACME_EMAIL}
+	on_demand_tls {
+		ask http://app:5150/internal/tls-ask
+	}
+}
+
+{$APP_HOST}, {$SITES_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:5150
+}
+
+*.{$SITES_DOMAIN} {
+	tls {
+		dns cloudflare {$CF_API_TOKEN}
+	}
+	encode zstd gzip
+	reverse_proxy app:5150
+}
+
+https:// {
+	tls {
+		on_demand
+	}
+	encode zstd gzip
+	reverse_proxy app:5150
+}

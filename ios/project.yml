@@ -1,0 +1,61 @@
+# XcodeGen project spec. On a Mac: `brew install xcodegen && xcodegen generate`
+# then open Frontage.xcodeproj. Set DEVELOPMENT_TEAM to your Apple team id.
+name: Frontage
+options:
+  bundleIdPrefix: com.frontage
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    DEVELOPMENT_TEAM: "9C3MZQRDRZ"  # S.MAKELA GAMES LTD
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"      # must match the App Store Connect version string
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    SWIFT_STRICT_CONCURRENCY: minimal
+targets:
+  Frontage:
+    type: application
+    platform: iOS
+    sources:
+      - path: Frontage
+        excludes: ["Resources/Frontage.storekit"]
+    resources:
+      - path: Frontage/Resources/Frontage.storekit
+        buildPhase: none
+    entitlements:
+      path: Frontage/Resources/Frontage.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
+        aps-environment: development
+    info:
+      path: Frontage/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Frontage
+        CFBundleName: Frontage
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSPhotoLibraryUsageDescription: "Choose photos of your business to feature on your website."
+        NSCameraUsageDescription: "Take photos of your business to feature on your website."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleURLTypes:
+          - CFBundleURLSchemes: [frontage]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.frontage.app
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+schemes:
+  Frontage:
+    build:
+      targets: { Frontage: all }
+    run:
+      config: Debug
+      storeKitConfiguration: Frontage/Resources/Frontage.storekit

@@ -1,0 +1,133 @@
+{
+  "meta": {
+    "businessName": "Oak & Ember",
+    "tagline": "Wood-fired sourdough, baked before Larnaca wakes up.",
+    "category": "artisan bakery",
+    "language": "en",
+    "seoTitle": "Oak & Ember Bakery · Sourdough & Pastries in Larnaca",
+    "seoDescription": "Family bakery in Larnaca baking naturally leavened sourdough, croissants and Cypriot classics in a wood-fired oven every morning. Open from 7am.",
+    "phone": "+357 24 123 456",
+    "email": "hello@oakandember.cy",
+    "address": "14 Zinonos Kitieos, Larnaca 6023, Cyprus",
+    "mapQuery": "Oak & Ember Bakery, Zinonos Kitieos 14, Larnaca",
+    "bookingUrl": null,
+    "socials": [
+      { "platform": "instagram", "url": "https://instagram.com/oakandember" },
+      { "platform": "facebook", "url": "https://facebook.com/oakandember" }
+    ],
+    "hours": [
+      { "days": "Mon – Fri", "hours": "7:00 – 15:00" },
+      { "days": "Saturday", "hours": "7:00 – 14:00" },
+      { "days": "Sunday", "hours": "Closed" }
+    ]
+  },
+  "theme": {
+    "preset": "warm",
+    "mode": "light",
+    "colors": {
+      "primary": "#9a3b1f",
+      "secondary": "#f0d9b5",
+      "accent": "#c47a2c",
+      "background": "#fbf6ee",
+      "surface": "#ffffff",
+      "text": "#2a1f16"
+    },
+    "headingFont": "Fraunces",
+    "bodyFont": "DM Sans",
+    "radius": "soft"
+  },
+  "nav": {
+    "links": [
+      { "label": "Our bread", "sectionId": "bread" },
+      { "label": "Story", "sectionId": "about" },
+      { "label": "Gallery", "sectionId": "gallery" },
+      { "label": "Visit", "sectionId": "contact" }
+    ],
+    "cta": { "label": "Order for pickup", "href": "#contact" }
+  },
+  "sections": [
+    {
+      "id": "hero",
+      "type": "hero",
+      "variant": "split",
+      "eyebrow": "Larnaca · since 2016",
+      "headline": "Bread the way your grandmother remembers it.",
+      "subheadline": "Slow-fermented sourdough, flaky butter croissants and warm koulouri, pulled from our wood-fired oven every morning at seven.",
+      "imageId": "img1",
+      "primaryCta": { "label": "See what's baking", "href": "#bread" },
+      "secondaryCta": { "label": "Find us", "href": "#contact" }
+    },
+    {
+      "id": "bread",
+      "type": "services",
+      "variant": "cards",
+      "heading": "Fresh every morning",
+      "intro": "Everything is mixed by hand, fermented overnight and baked in small batches. When it's gone, it's gone.",
+      "items": [
+        { "title": "Country sourdough", "description": "Our signature loaf. 36-hour ferment, blistered crust, open crumb.", "price": "€4.50", "imageId": "img2", "icon": null },
+        { "title": "Butter croissants", "description": "Laminated with Cypriot butter and baked until deeply golden.", "price": "€2.80", "imageId": "img3", "icon": null },
+        { "title": "Village koulouri", "description": "Sesame rings the traditional way, perfect with halloumi.", "price": "€1.50", "imageId": null, "icon": "sun" },
+        { "title": "Cakes to order", "description": "Olive oil cakes, carrot cake and birthday cakes made to your brief.", "price": "from €28", "imageId": null, "icon": "cake" }
+      ]
+    },
+    {
+      "id": "about",
+      "type": "about",
+      "variant": "imageRight",
+      "eyebrow": "Our story",
+      "heading": "Two ovens, one family, a lot of flour.",
+      "paragraphs": [
+        "Andreas learned to bake in his father's village bakery in Lefkara. In 2016 he and Maria opened Oak & Ember with a single wood-fired oven and a stubborn belief that bread should take time.",
+        "Today we bake around 300 loaves a day, mill part of our own flour and still start the fire at four in the morning."
+      ],
+      "imageId": "img4",
+      "stats": []
+    },
+    {
+      "id": "why",
+      "type": "features",
+      "variant": "grid",
+      "heading": "Why people cross town for it",
+      "intro": null,
+      "items": [
+        { "title": "Real fermentation", "description": "No commercial yeast, no shortcuts. Just flour, water, salt and time.", "icon": "clock" },
+        { "title": "Wood-fired", "description": "Oak and olive wood give our crusts their smoky depth.", "icon": "zap" },
+        { "title": "Local grain", "description": "We work with two farms in the Mesaoria plain for our wheat.", "icon": "leaf" },
+        { "title": "Made to be shared", "description": "Big loaves, generous slices, and always a taste at the counter.", "icon": "heart" }
+      ]
+    },
+    {
+      "id": "gallery",
+      "type": "gallery",
+      "variant": "masonry",
+      "heading": "From the oven",
+      "intro": null,
+      "imageIds": ["img1", "img2", "img3", "img4", "img5"]
+    },
+    {
+      "id": "reviews",
+      "type": "testimonials",
+      "variant": "cards",
+      "heading": "What the neighbourhood says",
+      "items": [
+        { "quote": "The best sourdough on the island. I drive from Nicosia on Saturdays just for the country loaf.", "author": "Elena P.", "role": "Regular since 2018" },
+        { "quote": "Their croissants are dangerous. Buy two, you will not regret it.", "author": "Marcus T.", "role": "Google review" },
+        { "quote": "Ordered a birthday cake with two days notice and it was perfect. Kind, honest people.", "author": "Sophia K.", "role": null }
+      ]
+    },
+    {
+      "id": "contact",
+      "type": "contact",
+      "variant": "split",
+      "heading": "Come early, the good stuff goes fast.",
+      "intro": "Send us a message to pre-order loaves or cakes. We reply the same day.",
+      "showForm": true,
+      "showMap": true
+    }
+  ],
+  "footer": {
+    "text": "A family bakery on Zinonos Kitieos, Larnaca. Sourdough, pastries and Cypriot classics from a wood-fired oven.",
+    "showSocials": true,
+    "showHours": true
+  }
+}

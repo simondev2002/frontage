@@ -1,0 +1,80 @@
+# Codemagic builds the iOS app on a cloud Mac and uploads it to TestFlight, so no
+# Mac is needed. One-time setup in Codemagic (app.codemagic.io):
+#   1. Add this GitHub repository.
+#   2. Teams > Integrations > Developer Portal > add an App Store Connect API key
+#      named exactly "Frontage ASC" (Issuer ID, Key ID and the .p8 file from
+#      App Store Connect > Users and Access > Integrations > App Store Connect API).
+#      The key needs the App Manager role with "Access to Certificates, Identifiers
+#      & Profiles" enabled; Codemagic then creates the distribution certificate and
+#      the App Store provisioning profile for com.frontage.app itself.
+#   3. Start the "ios-testflight" workflow (it also runs on every push to main).
+workflows:
+  ios-testflight:
+    name: Frontage iOS to TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Frontage ASC
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.frontage.app
+      vars:
+        XCODE_PROJECT: "ios/Frontage.xcodeproj"
+        XCODE_SCHEME: "Frontage"
+        APP_STORE_APPLE_ID: 6809199627
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - name: Generate the Xcode project (XcodeGen, from ios/project.yml)
+        script: |
+          brew install xcodegen
+          cd ios
+          xcodegen generate
+      - name: Apply the signing certificate and profile
+        script: xcode-project use-profiles
+      - name: Build the IPA with the next TestFlight build number
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          BUILD_NUMBER=$((LATEST + 1))
+          echo "Build number: $BUILD_NUMBER"
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --archive-xcargs "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+
+  # Cheap sanity check for the Node server on every push (no Mac minutes used).
+  server-check:
+    name: Frontage server check
+    max_build_duration: 15
+    instance_type: linux_x2
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: "*"
+          include: true
+          source: true
+    scripts:
+      - name: Install and syntax-check
+        script: |
+          cd server
+          npm ci --omit=dev
+          for f in src/*.js src/*/*.js scripts/*.js; do node --check "$f"; done
+          node scripts/render-demo.js bold
+    artifacts:
+      - server/data/demo-bold.html
