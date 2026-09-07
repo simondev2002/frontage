@@ -36,8 +36,23 @@ workflows:
           source: true
       cancel_previous_builds: true
     scripts:
+      # The build number must rise on every upload. Take the largest of: TestFlight's
+      # latest + 1, Codemagic's own build counter, and the git commit count, and write it
+      # into project.yml before XcodeGen runs so the archive cannot ignore it.
+      - name: Pick the next build number
+        script: |
+          set -uo pipefail
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null | tail -n 1 | tr -dc "0-9")
+          COMMITS=$(git rev-list --count HEAD)
+          NEXT=$(( ${LATEST:-0} + 1 ))
+          for c in "${BUILD_NUMBER:-0}" "$COMMITS"; do if [ "$c" -gt "$NEXT" ]; then NEXT=$c; fi; done
+          echo "TestFlight latest: '${LATEST:-none}'  Codemagic BUILD_NUMBER: '${BUILD_NUMBER:-unset}'  commits: $COMMITS  -> build number $NEXT"
+          echo "NEXT_BUILD=$NEXT" >> "$CM_ENV"
       - name: Generate the Xcode project (XcodeGen, from ios/project.yml)
         script: |
+          set -euo pipefail
+          perl -pi -e "s/CURRENT_PROJECT_VERSION: \"1\"/CURRENT_PROJECT_VERSION: \"$NEXT_BUILD\"/" ios/project.yml
+          grep -n "CURRENT_PROJECT_VERSION" ios/project.yml
           brew install xcodegen
           cd ios
           xcodegen generate
@@ -48,24 +63,14 @@ workflows:
         script: |
           set -euo pipefail
           keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
-            --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID"             --type IOS_APP_STORE             --certificate-key=@env:CERTIFICATE_PRIVATE_KEY             --create
           keychain add-certificates
           xcode-project use-profiles --project "$XCODE_PROJECT"
-      - name: Build the IPA with the next TestFlight build number
+      - name: Build the IPA
         script: |
-          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null | tail -n 1 | tr -dc "0-9")
-          NEXT=$(( ${LATEST:-0} + 1 ))
-          # Codemagic's own build counter only ever grows; never go below it, so an
-          # unreadable TestFlight answer can't reuse a build number Apple already has.
-          if [ "${BUILD_NUMBER:-0}" -gt "$NEXT" ]; then NEXT=$BUILD_NUMBER; fi
-          echo "Build number: $NEXT (TestFlight latest: ${LATEST:-none}, Codemagic build: ${BUILD_NUMBER:-?})"
-          xcode-project build-ipa \
-            --project "$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME" \
-            --archive-xcargs "CURRENT_PROJECT_VERSION=$NEXT"
+          set -euo pipefail
+          echo "Archiving with build number $NEXT_BUILD"
+          xcode-project build-ipa             --project "$XCODE_PROJECT"             --scheme "$XCODE_SCHEME"             --archive-xcargs "CURRENT_PROJECT_VERSION=$NEXT_BUILD"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
