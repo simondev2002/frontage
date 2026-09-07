@@ -40,7 +40,7 @@ The server and iOS code point at these values (`APPLE_APP_ID`, `APPLE_PRODUCT_*`
 - Privacy policy URL: `https://app.frontageweb.com/privacy`. Terms (EULA) URL: `https://app.frontageweb.com/terms`. Support URL: `https://app.frontageweb.com/support`.
 - Subscription disclosure in the description: name, length, price, "renews automatically unless cancelled at least 24 hours before the end of the period", "manage in Account Settings". No trial wording.
 - Privacy nutrition labels: Contact info (email, name), User content (photos, business info, messages), Identifiers (user id), Purchases, all "linked to you", none used for tracking. Camera and photo library are both used for website photos, which falls under "Photos or Videos".
-- Screenshots: onboarding step, generating screen, editor with a finished site, chat change applied, publish sheet, messages inbox.
+- Screenshots: six frames (welcome, brief, generating, chat edit, publish sheet, messages inbox) live in `store/screenshots/` (6.5" 1284x2778 and 6.9" 1290x2796) and were uploaded to the iPhone 6.5" slot of version 1.0 on 7 Sep 2026; Apple reuses them for every iPhone size. Regenerate with `store/tools/shots.mjs` (see `store/README.md`). The app is iPhone-only, so no iPad set is needed. Icon: `store/icon-1024.png`, also in the asset catalog.
 
 ## Review notes (paste into "Notes")
 
