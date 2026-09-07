@@ -91,8 +91,19 @@ struct DetailsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var app
     @State private var meta: SiteMeta?
-    @State private var phone = "", email = "", address = "", booking = "", tagline = "", name = ""
+    @State private var phone = ""
+    @State private var email = ""
+    @State private var address = ""
+    @State private var booking = ""
+    @State private var tagline = ""
+    @State private var name = ""
     @State private var hours: [SiteMeta.Hours] = []
+
+    // Explicit because private @State properties make the memberwise initializer private.
+    init(site: Site, onSaved: @escaping (Site) -> Void) {
+        self.site = site
+        self.onSaved = onSaved
+    }
 
     var body: some View {
         NavigationStack {

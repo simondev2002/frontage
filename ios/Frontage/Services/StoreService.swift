@@ -25,7 +25,6 @@ final class StoreService {
         }
     }
 
-    deinit { updatesTask?.cancel() }
 
     var starter: Product? { products.first { $0.id == AppConfig.starterProductID } }
     var business: Product? { products.first { $0.id == AppConfig.businessProductID } }

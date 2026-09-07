@@ -57,7 +57,8 @@ final class APIClient {
     // MARK: Auth
 
     func signInWithApple(identityToken: String, authorizationCode: String?, givenName: String?, familyName: String?, nonce: String?) async throws -> AuthResponse {
-        var dict: [String: Any] = ["identityToken": identityToken, "device": UIDevice.current.model,
+        let device = await MainActor.run { UIDevice.current.model }
+        var dict: [String: Any] = ["identityToken": identityToken, "device": device,
                                    "fullName": ["givenName": givenName ?? "", "familyName": familyName ?? ""]]
         if let authorizationCode { dict["authorizationCode"] = authorizationCode }
         if let nonce { dict["nonce"] = nonce }
@@ -71,7 +72,8 @@ final class APIClient {
         return (r.email, r.devCode)
     }
     func verifyEmailCode(email: String, code: String) async throws -> AuthResponse {
-        try await json("POST", "api/auth/email/verify", body: ["email": email, "code": code, "device": UIDevice.current.model], auth: false)
+        let device = await MainActor.run { UIDevice.current.model }
+        return try await json("POST", "api/auth/email/verify", body: ["email": email, "code": code, "device": device], auth: false)
     }
     func signOut() async { _ = try? await request("POST", "api/auth/signout"); token = nil }
     func deleteAccount() async throws { _ = try await request("DELETE", "api/me"); token = nil }

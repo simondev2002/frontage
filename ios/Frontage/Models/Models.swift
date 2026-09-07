@@ -253,3 +253,9 @@ enum APIError: LocalizedError {
 extension Int {
     var asDate: Date { Date(timeIntervalSince1970: TimeInterval(self) / 1000) }
 }
+
+// navigationDestination(item:) needs Hashable. Equality stays the synthesized field-by-field
+// comparison; hashing by id alone is consistent with it.
+extension Job: Hashable {
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
