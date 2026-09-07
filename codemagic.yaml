@@ -1,13 +1,16 @@
 # Codemagic builds the iOS app on a cloud Mac and uploads it to TestFlight, so no
-# Mac is needed. One-time setup in Codemagic (app.codemagic.io):
-#   1. Add this GitHub repository.
-#   2. Teams > Integrations > Developer Portal > add an App Store Connect API key
+# Mac is needed. Same signing approach as Jetlo (simjolly-ios/codemagic.yaml):
+#   1. Add this GitHub repository in Codemagic.
+#   2. Settings > Integrations > Developer Portal: an App Store Connect API key
 #      named exactly "Frontage ASC" (Issuer ID, Key ID and the .p8 file from
 #      App Store Connect > Users and Access > Integrations > App Store Connect API).
-#      The key needs the App Manager role with "Access to Certificates, Identifiers
-#      & Profiles" enabled; Codemagic then creates the distribution certificate and
-#      the App Store provisioning profile for com.frontage.app itself.
-#   3. Start the "ios-testflight" workflow (it also runs on every push to main).
+#   3. An environment variable group named "appstore" containing
+#      CERTIFICATE_PRIVATE_KEY (secure): the RSA private key the team's
+#      distribution certificate was built from. It is the same group and key
+#      Jetlo uses; the certificate "S.MAKELA GAMES LTD (Distribution)" in the
+#      developer portal belongs to it, and the "Frontage App Store" profile
+#      already includes that certificate.
+#   4. Start the "ios-testflight" workflow (it also runs on every push to main).
 workflows:
   ios-testflight:
     name: Frontage iOS to TestFlight
@@ -17,10 +20,10 @@ workflows:
       app_store_connect: Frontage ASC
     environment:
       xcode: latest
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.frontage.app
+      groups:
+        - appstore
       vars:
+        BUNDLE_ID: com.frontage.app
         XCODE_PROJECT: "ios/Frontage.xcodeproj"
         XCODE_SCHEME: "Frontage"
         APP_STORE_APPLE_ID: 6809199627
@@ -38,13 +41,18 @@ workflows:
           brew install xcodegen
           cd ios
           xcodegen generate
-      - name: Show what the App Store Connect key can see (diagnostics)
+      # Fetches the distribution certificate and the App Store profile for the
+      # bundle id, creating them when absent, using the private key from the
+      # "appstore" group so the existing certificate is reused.
+      - name: Set up signing, creating certificate and profile if absent
         script: |
-          echo "Bundle ids visible to the key:" && app-store-connect list-bundle-ids --bundle-id-identifier com.frontage.app || true
-          echo "Distribution certificates:" && app-store-connect list-certificates --type IOS_DISTRIBUTION || true
-          echo "App Store profiles for com.frontage.app:" && app-store-connect list-profiles --bundle-id-identifier com.frontage.app --profile-type IOS_APP_STORE || true
-      - name: Apply the signing certificate and profile
-        script: xcode-project use-profiles
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Build the IPA with the next TestFlight build number
         script: |
           LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
