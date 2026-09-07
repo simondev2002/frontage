@@ -38,6 +38,11 @@ workflows:
           brew install xcodegen
           cd ios
           xcodegen generate
+      - name: Show what the App Store Connect key can see (diagnostics)
+        script: |
+          echo "Bundle ids visible to the key:" && app-store-connect list-bundle-ids --bundle-id-identifier com.frontage.app || true
+          echo "Distribution certificates:" && app-store-connect list-certificates --type IOS_DISTRIBUTION || true
+          echo "App Store profiles for com.frontage.app:" && app-store-connect list-profiles --bundle-id-identifier com.frontage.app --profile-type IOS_APP_STORE || true
       - name: Apply the signing certificate and profile
         script: xcode-project use-profiles
       - name: Build the IPA with the next TestFlight build number
