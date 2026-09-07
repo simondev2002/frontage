@@ -1,0 +1,25 @@
+PURPOSE AND AUDIENCE
+Frontage lets small business owners (cafes, salons, trades, studios, clinics, shops) get a professional one-page website without a designer or a web builder. The owner answers a short questionnaire in the app and adds photos; the app writes and designs the site with AI, hosts it at <name>.frontageweb.com, and lets the owner change anything afterwards by describing the change in plain language, or by editing sections directly. Customer messages from the site's contact form arrive in the app. The first website is free to generate and preview, with 3 free AI changes; publishing and further changes need a subscription (Starter or Business, monthly, auto-renewable, billed through the App Store).
+
+HOW TO ACCESS AND TEST
+1. Sign in with email: use review@frontageweb.com and the code 123456 (fixed for review; no email is sent for this address). This account is on the Business plan, so every feature can be checked without purchasing.
+2. It already owns a finished, published site: Harbour Lane Coffee, live at https://harbour-lane-coffee.frontageweb.com. Open it from the home screen.
+3. Editing: type a request in the composer, e.g. "make the headline shorter" or "add an FAQ", or tap one of the suggestion chips. The site hides behind an "Applying your changes" panel and the reply appears in the conversation. Manual editing is under the menu (top right): Sections & text, Business details, Look & colors, Photos.
+4. Publishing and custom domains: the Publish button (top right). Messages: menu > Messages.
+5. To create a new site from scratch: Home > "Build a website". Generation takes about a minute. Photos can be taken with the camera or chosen from the library.
+6. To test purchasing: sign in with any Apple ID (Sign in with Apple creates a fresh free account) and subscribe from the paywall with a sandbox account. Restore purchases is on the paywall.
+7. Account deletion: Settings > Delete account. Sign in with Apple tokens are revoked on deletion.
+
+EXTERNAL SERVICES
+- Anthropic API (Claude models): generates and edits the website text and layout. Business details and photos are sent only after the user agrees in-app (consent step in onboarding; withdrawable in Settings > Privacy).
+- Apple: Sign in with Apple; StoreKit 2 in-app purchases with App Store Server Notifications; APNs push for new customer messages.
+- Our own server (app.frontageweb.com) hosted on Hostinger in Germany, EU; Cloudflare for DNS and DDoS protection.
+- Resend: transactional email (sign-in codes, customer message notifications).
+- Generated websites embed Google Fonts and, when the owner adds an address, a Google Maps embed.
+No third-party analytics or advertising SDKs. No tracking.
+
+REGIONAL DIFFERENCES
+The app works the same in every country. Subscription prices follow the App Store's per-country pricing. Sites can be written in the owner's language; the app UI is English. All customer data is stored on servers in the EU.
+
+REGULATED INDUSTRY / THIRD-PARTY MATERIAL
+Not applicable. The app hosts the owner's own business content. All content is generated for the owner from their own input, is moderated automatically before publishing, and every hosted site has a Report link. No licensed or protected third-party material is included.
