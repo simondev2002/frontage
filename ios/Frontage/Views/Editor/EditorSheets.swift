@@ -205,9 +205,7 @@ struct LookSheet: View {
                             FieldLabel(text: "Background texture")
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
-                                    ForEach(SiteTheme.textures, id: .self) { tex in
-                                        Chip(text: SiteTheme.textureLabels[tex] ?? tex, selected: (theme?.texture ?? "none") == tex) { theme?.texture = tex }
-                                    }
+                                    ForEach(SiteTheme.textures, id: .self) { tex in textureChip(tex) }
                                 }
                             }
                             Text("A subtle pattern behind the whole page. Paper and linen suit warm and classic sites, grain suits bold ones.").font(Theme.body(12)).foregroundStyle(Theme.muted)
@@ -242,6 +240,14 @@ struct LookSheet: View {
                 colors = ["primary": Color(hex: t.colors.primary), "accent": Color(hex: t.colors.accent), "background": Color(hex: t.colors.background), "text": Color(hex: t.colors.text)]
             }
         }
+    }
+
+    /// Kept as its own function: inline, the expression was too much for the type checker.
+    private func textureChip(_ tex: String) -> some View {
+        let label: String = SiteTheme.textureLabels[tex] ?? tex
+        let current: String = theme?.texture ?? "none"
+        let on: Bool = current == tex
+        return Chip(text: label, selected: on) { theme?.texture = tex }
     }
 
     private func save() async {
