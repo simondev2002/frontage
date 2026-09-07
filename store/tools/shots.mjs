@@ -131,13 +131,12 @@ for (const size of SIZES) {
   h1{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:96px;line-height:1.05;letter-spacing:-.02em;margin:0 0 30px}
   p{font-size:40px;line-height:1.35;margin:0 auto;max-width:980px;opacity:.88;font-weight:500}
   .stage{position:absolute;left:${left}px;top:${TOP}px;width:${px(F.w)};height:${px(F.h)}}
-  .shadow{position:absolute;left:${px(F.bx)};top:${px(F.by)};width:${px(F.bw)};height:${px(F.bh)};border-radius:${px(F.br)};box-shadow:0 70px 130px -40px rgba(0,0,0,.55)}
   .shot{position:absolute;left:${px(F.sx)};top:${px(F.sy)};width:${px(F.sw)};height:${px(F.sh)};border-radius:${px(F.r)};overflow:hidden;background:#F6F3EC}
   .shot img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
   .frame{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
 </style></head><body>
 <div class="copy"><h1>${esc(c.title)}</h1><p>${esc(c.sub)}</p></div>
-<div class="stage"><div class="shadow"></div><div class="shot"><img src="data:image/png;base64,${c.data}"></div><img class="frame" src="data:image/png;base64,${frameB64}"></div>
+<div class="stage"><div class="shot"><img src="data:image/png;base64,${c.data}"></div><img class="frame" src="data:image/png;base64,${frameB64}"></div>
 </body></html>`;
     await frame.setContent(html, { waitUntil: "load" });
     await frame.evaluate(async () => { await document.fonts.ready; });
