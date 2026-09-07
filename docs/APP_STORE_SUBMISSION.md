@@ -44,7 +44,7 @@ The server and iOS code point at these values (`APPLE_APP_ID`, `APPLE_PRODUCT_*`
 
 ## Review notes (paste into "Notes")
 
-> Frontage builds a website for a small business from a short questionnaire and photos using AI, then hosts it at `<name>.frontageweb.com`. The first website is free to generate and preview; a subscription is needed to change and publish it. Demo account: email `review@frontageweb.com`, sign-in code `123456` (fixed for review). The demo account has a finished site and an active Starter subscription so you can test editing ("make the headline shorter"), publishing and the messages inbox. Custom domains require the Business plan; you can subscribe with the sandbox account. Published content is moderated automatically before going live, every hosted site has a "Report" link, and accounts can be deleted from Settings. Business details and photos are sent to Anthropic only after the user agrees in-app; consent can be withdrawn in Settings.
+> Frontage builds a website for a small business from a short questionnaire and photos using AI, then hosts it at `<name>.frontageweb.com`. The first website is free to generate and preview, with 3 free AI changes; a subscription (Starter or Business, auto-renewable) is needed to keep editing and to publish. Demo account: email `review@frontageweb.com`, sign-in code `123456` (fixed for review). That account is on the Business plan (granted with `POST /api/admin/subscription`), so every feature can be checked: AI editing, manual section editing, publishing, custom domains and the messages inbox. To test the purchase flow itself, sign in with any Apple ID, which creates a fresh free account, and subscribe through the paywall with a sandbox account. Published content is moderated before going live, every hosted site has a Report link, accounts can be deleted from Settings, and AI processing happens only after in-app consent.
 
 The fixed review code is implemented: set `REVIEW_EMAIL=review@frontageweb.com` and `REVIEW_CODE=123456` in `server/.env` (see `config.reviewLogin` and `isReviewLogin` in `server/src/auth.js`). For that address no email is sent and only the fixed code is accepted; every other address still goes through the normal one-time code. Leave both variables empty outside review periods, then the bypass is off. Seed the demo account (finished site + Starter entitlement) on production before submitting.
 
@@ -73,3 +73,9 @@ Since the 2025 guideline update Apple requires explicit permission before person
 - [ ] Test on a physical device: purchase, restore, cancel in Settings, receive a push for a test lead, take a photo with the camera and attach it to an edit.
 - [ ] Test account deletion end to end.
 - [ ] TestFlight build tested by two people who are not you.
+
+## Release status on 7 Sep 2026 (evening)
+
+Done in App Store Connect: app record, metadata (description without currency-specific prices), six screenshots, icon, App Privacy, age rating, availability, subscriptions with 20% intro offers and their review screenshots (`store/subscription-review-*-1284.png`), build 1.0 (23) attached to the version, review account `review@frontageweb.com` on the Business plan with a published demo site (harbour-lane-coffee.frontageweb.com). Server live at app.frontageweb.com.
+
+Still the Account Holder's to do before "Add for Review": sign the Paid Apps Agreement (Business > Agreements; legal entity must be confirmed first) plus banking and tax forms; complete the DSA trader compliance; fill App Review Information (sign-in `review@frontageweb.com` / `123456`, contact name, phone, email, notes); on each subscription page press "Add for Review" so they ride along with version 1.0; test build 23 on a phone; then Add for Review and submit.
