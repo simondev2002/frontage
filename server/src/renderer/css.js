@@ -42,7 +42,26 @@ export function buildCss(theme) {
   --font-body:'${theme.bodyFont}',${fallback(theme.bodyFont)};
   --wrap:1180px;--pad:clamp(20px,5vw,56px);--section:clamp(64px,9vw,120px);
 }`;
-  return vars + BASE + (PRESETS[theme.preset] || "");
+  return vars + BASE + (PRESETS[theme.preset] || "") + textureCss(theme);
+}
+
+// Page-background textures: tiny tiled SVG/gradient layers over the background color,
+// low contrast so text stays readable. Sections without their own surface let it show.
+function textureCss(theme) {
+  const t = theme.texture || "none";
+  if (t === "none") return "";
+  const ink = theme.mode === "dark" ? "255,255,255" : "0,0,0";
+  const noise = (freq, alpha) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='${freq}' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 ${theme.mode === "dark" ? 1 : 0} 0 0 0 0 ${theme.mode === "dark" ? 1 : 0} 0 0 0 0 ${theme.mode === "dark" ? 1 : 0} 0 0 0 ${alpha} 0'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>`)}")`;
+  const layers = {
+    paper: `${noise(0.9, 0.07)} repeat 0 0 / 240px 240px`,
+    grain: `${noise(1.4, 0.11)} repeat 0 0 / 200px 200px`,
+    linen: `repeating-linear-gradient(0deg, rgba(${ink},.035) 0 1px, transparent 1px 3px), repeating-linear-gradient(90deg, rgba(${ink},.035) 0 1px, transparent 1px 3px)`,
+    dots: `radial-gradient(rgba(${ink},.10) 1px, transparent 1.4px) 0 0 / 18px 18px`,
+    grid: `linear-gradient(rgba(${ink},.06) 1px, transparent 1px) 0 0 / 32px 32px, linear-gradient(90deg, rgba(${ink},.06) 1px, transparent 1px) 0 0 / 32px 32px`,
+    stripes: `repeating-linear-gradient(135deg, rgba(${ink},.04) 0 6px, transparent 6px 16px)`,
+  };
+  return layers[t] ? `
+body{background:${layers[t]}, var(--bg)}` : "";
 }
 
 const BASE = `

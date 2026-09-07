@@ -147,8 +147,36 @@ export async function structuredCall({ kind, model, effort, system, messages, sc
   let data;
   try {
     data = fmt.parse(extractJson(text));
-  } catch (e) {
-    throw new AIError("invalid_output", "The AI returned something we could not use. Please try again.", e.message);
+  } catch (first) {
+    // One repair round: the model sees its own reply and exactly what failed, which
+    // fixes most invalid outputs (stray properties, a missing field, prose around the JSON).
+    console.warn(`[ai] ${kind}: output failed validation (${String(first.message).slice(0, 300)}); asking for a corrected reply`);
+    const retryParams = {
+      ...params,
+      messages: [
+        ...messages,
+        { role: "assistant", content: text.slice(0, 60000) || "(empty)" },
+        { role: "user", content: `That reply did not validate: ${String(first.message).slice(0, 1500)}\n\nSend the corrected JSON object only, following the schema exactly. Never add properties the schema does not define. If the request needs something the schema cannot express, make the closest supported change and say so in "reply".` },
+      ],
+    };
+    const retryFallbacks = config.ai.fallbacks && !fallbacksUnavailable && /claude-(opus|fable)/i.test(model);
+    const retryStarted = Date.now();
+    let msg2;
+    try {
+      msg2 = await runStream(retryParams, retryFallbacks, onProgress);
+    } catch (e) {
+      recordCall({ kind, model, userId, siteId, usage: null, ok: false, error: e.message, startedAt: retryStarted });
+      throw mapError(e);
+    }
+    recordCall({ kind, model: msg2.model || model, userId, siteId, usage: msg2.usage, ok: true, error: null, startedAt: retryStarted });
+    const text2 = msg2.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+    try {
+      data = fmt.parse(extractJson(text2));
+      msg = msg2;
+    } catch (e) {
+      console.warn(`[ai] ${kind}: corrected reply still invalid (${String(e.message).slice(0, 300)}); first 200 chars: ${text2.slice(0, 200).replace(/\s+/g, " ")}`);
+      throw new AIError("invalid_output", "The AI returned something we could not use. Please try again.", e.message);
+    }
   }
   return { data, usage: msg.usage, model: msg.model || model, cost };
 }

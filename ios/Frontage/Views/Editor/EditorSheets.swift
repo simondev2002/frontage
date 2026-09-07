@@ -201,6 +201,17 @@ struct LookSheet: View {
                         Picker("Mode", selection: Binding(get: { theme?.mode ?? "light" }, set: { theme?.mode = $0 })) {
                             Text("Light").tag("light"); Text("Dark").tag("dark")
                         }.pickerStyle(.segmented)
+                        VStack(alignment: .leading, spacing: 8) {
+                            FieldLabel(text: "Background texture")
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(SiteTheme.textures, id: .self) { tex in
+                                        Chip(text: SiteTheme.textureLabels[tex] ?? tex, selected: (theme?.texture ?? "none") == tex) { theme?.texture = tex }
+                                    }
+                                }
+                            }
+                            Text("A subtle pattern behind the whole page. Paper and linen suit warm and classic sites, grain suits bold ones.").font(Theme.body(12)).foregroundStyle(Theme.muted)
+                        }
                         VStack(alignment: .leading, spacing: 10) {
                             FieldLabel(text: "Colors")
                             ForEach(["primary", "accent", "background", "text"], id: \.self) { key in

@@ -19,6 +19,8 @@ export const ICONS = [
 ];
 
 export const PRESETS = ["editorial", "bold", "minimal", "warm", "luxury", "playful", "classic", "tech"];
+// Subtle page-background textures, drawn by the renderer in CSS (no image files).
+export const TEXTURES = ["none", "paper", "grain", "linen", "dots", "grid", "stripes"];
 export const SOCIALS = ["instagram", "facebook", "tiktok", "x", "youtube", "linkedin", "whatsapp", "pinterest", "yelp", "google", "tripadvisor", "other"];
 
 const hex = z.string().describe("CSS hex color like #1a1a1a");
@@ -61,6 +63,7 @@ export const ThemeSchema = z.object({
   headingFont: fontField,
   bodyFont: fontField,
   radius: z.enum(["sharp", "soft", "round"]),
+  texture: z.enum(TEXTURES).default("none").describe("Subtle background texture behind the whole page: none, paper (soft fibres), grain (film grain), linen (fine weave), dots, grid, stripes"),
 });
 
 export const NavSchema = z.object({
