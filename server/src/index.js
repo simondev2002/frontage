@@ -12,7 +12,7 @@ import { registerSiteRoutes } from "./sites.js";
 import { registerLeadRoutes, handleFormPost } from "./leads.js";
 import { registerAppleBillingRoutes } from "./billing/apple.js";
 import { registerStripeRoutes, stripeEnabled } from "./billing/stripe.js";
-import { entitlement } from "./billing/entitlements.js";
+import { entitlement, tierFor } from "./billing/entitlements.js";
 import { registerHostingRoutes, handleHostRequest } from "./hosting.js";
 import { registerDevice } from "./push.js";
 import { resumeJobs } from "./jobs.js";
@@ -92,6 +92,36 @@ router.post("/api/admin/sites/:id/restore", async (ctx) => {
 router.get("/api/admin/reports", async (ctx) => {
   requireAdmin(ctx);
   return { reports: all("SELECT id, site_id AS siteId, reason, details, created_at AS createdAt FROM reports ORDER BY id DESC LIMIT 100") };
+});
+
+// Complimentary plans for the team, App Review and partners: a "manual" subscription
+// that the entitlement logic treats like any other active one. tier null removes it.
+router.get("/api/admin/users", async (ctx) => {
+  requireAdmin(ctx);
+  const q = `%${(ctx.url.searchParams.get("q") || "").trim()}%`;
+  const users = all("SELECT id, email, name, created_at AS createdAt FROM users WHERE email LIKE ? ORDER BY created_at DESC LIMIT 50", q);
+  return { users: users.map((u) => ({ ...u, tier: tierFor(u.id), sites: get("SELECT COUNT(*) AS n FROM sites WHERE user_id = ?", u.id).n })) };
+});
+router.post("/api/admin/subscription", async (ctx) => {
+  requireAdmin(ctx);
+  const body = await readJsonBody(ctx.req);
+  const user = body.userId ? get("SELECT id, email FROM users WHERE id = ?", body.userId) : get("SELECT id, email FROM users WHERE email = ?", String(body.email || "").trim().toLowerCase());
+  if (!user) throw notFound("User not found");
+  const ref = `manual:${user.id}`;
+  if (!body.tier) {
+    run("UPDATE subscriptions SET status = 'cancelled', updated_at = ? WHERE provider_ref = ?", now(), ref);
+    return { ok: true, user: user.email, entitlement: entitlement(user.id) };
+  }
+  if (!["starter", "business"].includes(body.tier)) throw new HttpError(400, "bad_tier", "tier must be starter, business or null");
+  const months = Math.min(120, Math.max(1, Number(body.months) || 12));
+  const expires = now() + months * 30 * 86400;
+  run(
+    `INSERT INTO subscriptions (id, user_id, provider, provider_ref, product_id, tier, status, expires_at, auto_renew, environment, raw_json, updated_at)
+     VALUES (?, ?, 'manual', ?, NULL, ?, 'active', ?, 0, 'manual', ?, ?)
+     ON CONFLICT(provider_ref) DO UPDATE SET tier = excluded.tier, status = 'active', expires_at = excluded.expires_at, raw_json = excluded.raw_json, updated_at = excluded.updated_at`,
+    `manual-${user.id}`, user.id, ref, body.tier, expires, JSON.stringify({ note: String(body.note || "").slice(0, 200), grantedAt: now() }), now(),
+  );
+  return { ok: true, user: user.email, entitlement: entitlement(user.id) };
 });
 
 router.get("/api/admin/stats", async (ctx) => {
