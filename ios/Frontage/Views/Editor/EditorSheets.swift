@@ -205,7 +205,7 @@ struct LookSheet: View {
                             FieldLabel(text: "Background texture")
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
-                                    ForEach(SiteTheme.textures, id: .self) { tex in textureChip(tex) }
+                                    ForEach(SiteTheme.textures, id: \.self) { tex in textureChip(tex) }
                                 }
                             }
                             Text("A subtle pattern behind the whole page. Paper and linen suit warm and classic sites, grain suits bold ones.").font(Theme.body(12)).foregroundStyle(Theme.muted)
