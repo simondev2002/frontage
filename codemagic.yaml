@@ -56,13 +56,16 @@ workflows:
           xcode-project use-profiles --project "$XCODE_PROJECT"
       - name: Build the IPA with the next TestFlight build number
         script: |
-          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
-          BUILD_NUMBER=$((LATEST + 1))
-          echo "Build number: $BUILD_NUMBER"
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null | tail -n 1 | tr -dc "0-9")
+          NEXT=$(( ${LATEST:-0} + 1 ))
+          # Codemagic's own build counter only ever grows; never go below it, so an
+          # unreadable TestFlight answer can't reuse a build number Apple already has.
+          if [ "${BUILD_NUMBER:-0}" -gt "$NEXT" ]; then NEXT=$BUILD_NUMBER; fi
+          echo "Build number: $NEXT (TestFlight latest: ${LATEST:-none}, Codemagic build: ${BUILD_NUMBER:-?})"
           xcode-project build-ipa \
             --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME" \
-            --archive-xcargs "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+            --archive-xcargs "CURRENT_PROJECT_VERSION=$NEXT"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
