@@ -36,6 +36,10 @@ targets:
       properties:
         CFBundleDisplayName: Frontage
         CFBundleName: Frontage
+        # XcodeGen writes literal "1.0"/"1" here unless told otherwise, which is why TestFlight
+        # kept receiving build 1 whatever CURRENT_PROJECT_VERSION said.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
