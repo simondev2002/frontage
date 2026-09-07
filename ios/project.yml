@@ -14,7 +14,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "1.0"      # must match the App Store Connect version string
     CURRENT_PROJECT_VERSION: "1"
-    TARGETED_DEVICE_FAMILY: "1,2"
+    TARGETED_DEVICE_FAMILY: "1"   # iPhone only at launch (no iPad screenshots or iPad layout testing needed)
     SWIFT_STRICT_CONCURRENCY: minimal
 targets:
   Frontage:
