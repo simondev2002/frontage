@@ -68,3 +68,14 @@ The whole state is `server/data` (SQLite file + uploads). Nightly: `sqlite3 data
 ## 6. Scaling notes
 
 A single container handles thousands of sites (rendering is string concatenation, cached). When you outgrow it: move `data/uploads` to S3-compatible storage behind a CDN, put SQLite on Litestream or switch to Postgres (the `db.js` helpers are the only place SQL lives), and make the job queue external. None of that is needed for the first few thousand customers.
+
+## 7. Current production (set up 7 Sep 2026)
+
+- Hostinger KVM 2 in Düsseldorf (EU), Ubuntu 26.04, IP `179.198.206.40`, SSH as root with the `frontage_vps` key.
+- Code at `/opt/frontage`, containers from `/opt/frontage/server` (`app` + `caddy`), state in `/opt/frontage/server/data`, secrets in `.env` and `keys/` there (never in git). Nightly SQLite backups in `/var/backups/frontage` (14 days).
+- Cloudflare zone `frontageweb.com`: `@`, `www`, `app` proxied; `*` and `sites` DNS-only (Caddy issues the wildcard through the Cloudflare DNS challenge, customer domains get on-demand certificates).
+- Update after a push to `main`:
+
+```bash
+ssh root@179.198.206.40 'cd /opt/frontage && git pull --ff-only && cd server && docker compose up -d --build app'
+```

@@ -42,7 +42,7 @@ export function resolveSiteForHost(hostHeader) {
   const host = hostOnly(hostHeader);
   const sitesHost = hostOnly(config.sitesDomain);
   const appHost = hostOnly(config.appHost);
-  if (!host || host === appHost || host === "localhost" || host === "127.0.0.1") return { kind: "app" };
+  if (!host || host === appHost || host === sitesHost || host === "localhost" || host === "127.0.0.1") return { kind: "app" };
   if (host.endsWith("." + sitesHost)) {
     const slug = host.slice(0, -(sitesHost.length + 1));
     if (!slug || slug.includes(".")) return { kind: "none" };
