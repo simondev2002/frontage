@@ -131,7 +131,9 @@ assert(stripe.status !== 200, "unsigned Stripe webhook must not be processed");
 const fakeTx = (token) => `${b64u({ alg: "ES256" })}.${b64u({ originalTransactionId: `sec-${Date.now()}`, transactionId: "t1", productId: "com.frontage.app.business.monthly", environment: "Sandbox", appAccountToken: token, expiresDate: Date.now() + 864e5, signedDate: Date.now() })}.${b64u("sig")}`;
 const stolen = await api("POST", "/api/billing/apple/transactions", { transaction: fakeTx(A.id) }, { token: B.token });
 assert.equal(stolen.status, 200);
-assert.equal(stolen.json.results[0].error, "not_your_purchase");
+// With Apple's root certificates present the fake JWS fails signature verification first ("invalid");
+// without them (dev), verification is skipped and the ownership check answers. Both reject it.
+assert(["not_your_purchase", "invalid"].includes(stolen.json.results[0].error), "stolen transaction must be rejected: " + JSON.stringify(stolen.json.results[0]));
 assert.equal(stolen.json.entitlement.tier, "free");
 const devFromB = await api("POST", "/api/dev/subscription", { tier: "business" }, { token: B.token, headers: { "X-Forwarded-For": "127.0.0.1" } });
 assert.equal(devFromB.status, 200, "loopback dev route reachable locally (raw socket)");

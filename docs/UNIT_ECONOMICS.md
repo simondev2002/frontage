@@ -49,7 +49,7 @@ Hosting: static HTML rendered on the fly and cached; images from disk. A small V
 | Typical AI use (1 regeneration every ~3 months, 15-25 edits) | $1.20-2.20 | $2.00-3.50 |
 | Hosting + email | $0.06 | $0.10 |
 | **Typical gross margin (15% tier)** | **≈ 75-85%** | **≈ 80-88%** |
-| Worst case at the plan cap (150 / 400 edits on Opus 5) | $13.50 | $36.00 |
+| Worst case at the plan cap (40 / 120 edits on Sonnet 5, about $0.08 each) | $3.20 | $9.60 |
 
 The caps are the guardrail: a customer who hits the cap on Opus 5 costs more than they pay that month, but very few owners make 150 edits a month, and the caps reset. If measured usage skews heavy, the two knobs are `AI_EDIT_MODEL=claude-sonnet-5` (cuts edit cost by ~60% with little visible quality loss on edits) and lowering `STARTER_EDITS`/`BUSINESS_EDITS`. Keep Opus 5 for generation: the first impression is the product.
 

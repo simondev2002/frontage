@@ -202,11 +202,22 @@ struct SiteEditorView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(chipSuggestions) { s in
-                            Chip(text: s.label, selected: false) { tap(s) }
+                            // A plain view with a tap gesture: a horizontal drag scrolls, only a tap sends.
+                            Text(s.label)
+                                .font(Theme.body(15, weight: .medium))
+                                .lineLimit(1)
+                                .padding(.horizontal, 14).padding(.vertical, 9)
+                                .background(Theme.card, in: Capsule())
+                                .overlay(Capsule().stroke(Theme.line))
+                                .foregroundStyle(Theme.ink)
+                                .contentShape(Capsule())
+                                .onTapGesture { tap(s) }
                         }
                     }
                     .padding(.horizontal, 16)
                 }
+                .frame(height: 40)
+                .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
             }
             if !attachments.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -241,8 +252,20 @@ struct SiteEditorView: View {
             }
             .padding(.horizontal, 16)
             if let e = app.entitlement {
-                Text(e.tier == "free" ? "Your first website is free. Subscribe to make changes and publish it." : "\(e.remaining.edits) changes left this month")
+                if e.tier == "free" && e.remaining.edits > 0 {
+                    Text("\(e.remaining.edits) free \(e.remaining.edits == 1 ? "change" : "changes") left. Subscribe to publish.")
+                        .font(Theme.body(12)).foregroundStyle(Theme.muted)
+                } else if e.remaining.edits <= 0 {
+                    HStack(spacing: 4) {
+                        Text(e.tier == "free" ? "Your free changes are used up." : "This month's changes are used up.")
+                        Button(e.tier == "free" ? "See plans" : "Upgrade") { app.showPaywall(e.tier == "free" ? "starter" : "business", reason: outOfChangesReason(e)) }
+                            .fontWeight(.semibold)
+                    }
                     .font(Theme.body(12)).foregroundStyle(Theme.muted)
+                } else {
+                    Text("\(e.remaining.edits) changes left this month")
+                        .font(Theme.body(12)).foregroundStyle(Theme.muted)
+                }
             }
         }
         .padding(.vertical, 10)
@@ -294,11 +317,24 @@ struct SiteEditorView: View {
         if let m = try? await APIClient.shared.messages(siteId) { messages = m }
     }
 
+    /// Why the paywall opens when the owner is out of changes, in plain words.
+    private func outOfChangesReason(_ e: Entitlement) -> String {
+        if e.tier == "free" {
+            return "You have used your \(e.plan.editsPerMonth) free changes. Subscribe to keep editing and to publish your website."
+        }
+        return "You have used this month's \(e.plan.editsPerMonth) changes. Business includes more each month, or they reset next month."
+    }
+
     private func send() async {
         let text = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !applying else { return }
         guard app.aiAvailable else { app.toast = "AI editing is not available right now."; return }
         if app.user?.aiConsentAt == nil { askConsent = true; return }
+        // Out of changes: explain and offer the plans instead of a failed request.
+        if let e = app.entitlement, e.remaining.edits <= 0 {
+            app.showPaywall(e.tier == "free" ? "starter" : "business", reason: outOfChangesReason(e))
+            return
+        }
         composerFocused = false
         pendingMessage = text
         applyText = attachments.contains { $0.uploading } ? "Uploading your photos" : "Reading your request"

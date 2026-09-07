@@ -15,6 +15,9 @@ struct PublishSheet: View {
     @State private var verifying = false
     @State private var working = false
     @State private var error: String?
+    /// The paywall must be presented from inside this sheet; the root's paywall cannot appear over it.
+    @State private var paywall: PaywallRequest?
+    @State private var publishAfterPlan = false
 
     private var sitesDomain: String { app.config?.sitesDomain ?? AppConfig.sitesDomain }
 
@@ -38,7 +41,18 @@ struct PublishSheet: View {
                 if site.customDomain != nil { Task { domain = try? await APIClient.shared.domain(site.id) } }
             }
             .overlay { if working { LoadingOverlay(text: "One moment") } }
+            .sheet(item: $paywall, onDismiss: {
+                // The owner just subscribed from the "Choose a plan and publish" button: finish the job.
+                if publishAfterPlan, app.entitlement?.plan.publish == true {
+                    publishAfterPlan = false
+                    Task { await publish() }
+                }
+            }) { req in PaywallView(request: req) }
         }
+    }
+
+    private func needPlan(_ tier: String, reason: String) {
+        paywall = PaywallRequest(requiredTier: tier, reason: reason)
     }
 
     // MARK: Status
@@ -62,8 +76,14 @@ struct PublishSheet: View {
             } else {
                 Text(app.entitlement?.plan.publish == true ? "Publishing makes your site public at the address below." : "Publishing needs a plan. Your first month is billed through the App Store.")
                     .font(Theme.body(15)).foregroundStyle(Theme.muted)
-                AsyncButton { await publish() } label: { Text(app.entitlement?.plan.publish == true ? "Publish now" : "Choose a plan and publish") }
-                    .buttonStyle(PrimaryButtonStyle(fill: Theme.green))
+                if app.entitlement?.plan.publish == true {
+                    AsyncButton { await publish() } label: { Text("Publish now") }.buttonStyle(PrimaryButtonStyle(fill: Theme.green))
+                } else {
+                    Button {
+                        publishAfterPlan = true
+                        needPlan("starter", reason: "Publishing needs a plan. Pick one and your site goes live right after.")
+                    } label: { Text("Choose a plan and publish") }.buttonStyle(PrimaryButtonStyle(fill: Theme.green))
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading).cardStyle()
@@ -102,7 +122,7 @@ struct PublishSheet: View {
             HStack { Text("Your own domain").font(Theme.body(14, weight: .semibold)); Spacer(); PlanBadge(tier: "business") }
             if app.entitlement?.plan.customDomain != true {
                 Text("Use mybusiness.com instead of a \(sitesDomain) address, and remove the Frontage badge. Included in Business.").font(Theme.body(15)).foregroundStyle(Theme.muted)
-                Button { app.showPaywall("business", reason: "Custom domains are included in the Business plan.") } label: { Text("Upgrade to Business") }.buttonStyle(SecondaryButtonStyle())
+                Button { needPlan("business", reason: "Custom domains are included in the Business plan.") } label: { Text("Upgrade to Business") }.buttonStyle(SecondaryButtonStyle())
             } else if let d = domain, let name = d.domain {
                 HStack {
                     Text(name).font(Theme.display(20))
@@ -151,6 +171,9 @@ struct PublishSheet: View {
             let s = try await APIClient.shared.publish(site.id)
             site = s; onChanged(s)
             await app.refreshEntitlement()
+        } catch let e as APIError where e.requiredTier != nil {
+            publishAfterPlan = true
+            needPlan(e.requiredTier ?? "starter", reason: e.errorDescription ?? "Publishing needs a plan.")
         } catch { if !app.handle(error) { self.error = (error as? LocalizedError)?.errorDescription } }
     }
     private func unpublish() async {
@@ -174,6 +197,8 @@ struct PublishSheet: View {
             let (s, records, provider) = try await APIClient.shared.setDomain(site.id, domain: domainInput)
             site = s; onChanged(s)
             domain = DomainInfo(domain: s.customDomain, status: s.customDomainStatus, records: records, checkedAt: nil, provider: provider)
+        } catch let e as APIError where e.requiredTier != nil {
+            needPlan(e.requiredTier ?? "business", reason: e.errorDescription ?? "Custom domains are included in the Business plan.")
         } catch { if !app.handle(error) { self.error = (error as? LocalizedError)?.errorDescription } }
     }
     private func verify() async {

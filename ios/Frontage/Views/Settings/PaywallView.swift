@@ -19,9 +19,9 @@ struct PaywallView: View {
                                subtitle: request.reason ?? "Pick the plan that fits. Cancel any time.")
 
                     planCard(tier: "starter", product: store.starter, fallback: app.starterPriceLabel,
-                             features: ["Your website built and hosted", "Live at your-business.\(app.config?.sitesDomain ?? AppConfig.sitesDomain)", "150 AI changes a month", "Contact form with messages in the app", "Fast, mobile-friendly, search-ready"])
+                             features: ["Your website built and hosted", "Live at your-business.\(app.config?.sitesDomain ?? AppConfig.sitesDomain)", "40 AI changes a month", "Contact form with messages in the app", "Fast, mobile-friendly, search-ready"])
                     planCard(tier: "business", product: store.business, fallback: app.businessPriceLabel,
-                             features: ["Everything in Starter", "Your own domain (mybusiness.com)", "No Frontage badge", "Up to 3 websites", "400 AI changes a month"])
+                             features: ["Everything in Starter", "Your own domain (mybusiness.com)", "No Frontage badge", "Up to 3 websites", "120 AI changes a month"])
 
                     if let error { Text(error).font(Theme.body(14)).foregroundStyle(Theme.coral) }
 

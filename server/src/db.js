@@ -196,6 +196,7 @@ ensureColumn("users", "ai_consent_at", "INTEGER");
 ensureColumn("sites", "suspended_reason", "TEXT");
 ensureColumn("chat_messages", "meta", "TEXT");
 ensureColumn("sites", "legal_json", "TEXT"); // cached, translated privacy notice per site
+ensureColumn("sites", "suggestions_json", "TEXT"); // AI improvement ideas shown as chips, refreshed after each generation/edit
 
 export const now = () => Date.now();
 export const monthKey = (d = new Date()) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;

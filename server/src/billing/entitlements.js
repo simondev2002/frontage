@@ -82,7 +82,7 @@ export function assertCan(userId, action) {
       break;
     case "edit":
       if (e.remaining.edits <= 0) {
-        need(nextTier, "edit_limit", e.tier === "free" ? "Your first website is free. Subscribe to make changes and publish it." : "You have used this month's AI edits. They reset next month.");
+        need(nextTier, "edit_limit", e.tier === "free" ? (e.plan.editsPerMonth > 0 ? `You have used your  free changes. Subscribe to keep editing and to publish your website.` : "Your first website is free. Subscribe to make changes and publish it.") : "You have used this month's AI changes. They reset next month.");
       }
       break;
     // Manual (non-AI) changes: free of AI cost, so no monthly quota, but they still need a plan.

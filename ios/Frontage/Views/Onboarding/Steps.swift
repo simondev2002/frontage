@@ -205,14 +205,19 @@ struct PhotoGrid: View {
                 if photos.count < max {
                     // Camera or library; inspiration screenshots are library-only.
                     PhotoSourceButton(kind: kind, siteId: siteId, maxCount: max - photos.count, allowCamera: kind != "reference", photos: $photos) {
-                        VStack(spacing: 6) {
-                            Image(systemName: kind == "reference" ? "plus" : "camera").font(.title2)
-                            Text(photos.isEmpty ? "Add photos" : "Add more").font(Theme.body(13, weight: .semibold))
-                        }
-                        .foregroundStyle(Theme.green)
-                        .frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
-                        .background(Theme.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.green.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6])))
+                        Color.clear
+                            .aspectRatio(1, contentMode: .fit)
+                            .background(Theme.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.green.opacity(0.3), style: StrokeStyle(lineWidth: 1.5, dash: [6])))
+                            .overlay {
+                                VStack(spacing: 6) {
+                                    Image(systemName: kind == "reference" ? "plus" : "camera").font(.title2)
+                                    Text(photos.isEmpty ? "Add photos" : "Add more").font(Theme.body(13, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                                }
+                                .foregroundStyle(Theme.green)
+                                .padding(6)
+                            }
+                            .contentShape(RoundedRectangle(cornerRadius: 14))
                     }
                 }
             }

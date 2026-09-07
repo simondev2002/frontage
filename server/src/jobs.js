@@ -4,11 +4,17 @@ import { get, all, run, now, parseJson } from "./db.js";
 import { uuid } from "./util/http.js";
 
 const handlers = new Map();
+const doneListeners = [];
 const CONCURRENCY = Number(process.env.JOB_CONCURRENCY || 3);
 let running = 0;
 
 export function registerJobHandler(type, fn) {
   handlers.set(type, fn);
+}
+
+/// Called with the job row after a job finished successfully (for follow-up work that must not block the job).
+export function onJobDone(fn) {
+  doneListeners.push(fn);
 }
 
 export function enqueueJob({ type, siteId, userId, input }) {
@@ -85,6 +91,7 @@ async function runJob(j) {
       progress: (p, text) => updateJob(j.id, { progress: p, ...(text ? { statusText: text } : {}) }),
     });
     updateJob(j.id, { status: "done", progress: 1, statusText: "Done", result: result || {} });
+    for (const fn of doneListeners) { try { fn(j); } catch (e) { console.error("[job done hook]", e.message); } }
   } catch (e) {
     console.error(`[job ${j.type}] failed:`, e.message);
     updateJob(j.id, { status: "failed", error: e.userMessage || e.message || "Failed", result: e.code ? { code: e.code } : null });

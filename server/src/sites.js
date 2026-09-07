@@ -6,7 +6,8 @@ import { get, all, run, now, parseJson, transaction } from "./db.js";
 import { badRequest, notFound, forbidden, readJsonBody, uuid, randomToken, rateLimit, isLoopback } from "./util/http.js";
 import { requireAuth, requireAiConsent } from "./auth.js";
 import { assertCan, bumpUsage, entitlement, tierFor } from "./billing/entitlements.js";
-import { enqueueJob, getJob, jobOwner, registerJobHandler } from "./jobs.js";
+import { enqueueJob, getJob, jobOwner, registerJobHandler, onJobDone } from "./jobs.js";
+import { suggestIdeas } from "./ai/suggest.js";
 import { generateSite } from "./ai/generate.js";
 import { editSite } from "./ai/edit.js";
 import { moderateSpec } from "./ai/moderate.js";
@@ -45,23 +46,43 @@ export function viewsFor(siteId) {
   };
 }
 
-// Next-step ideas the app shows as chips, derived from what the site still lacks.
-export function suggestionsFor(spec, images = []) {
+// Next-step ideas the app shows as chips. Needs first (photos, gallery), then the
+// AI's site-specific ideas cached on the row, then a few safe standbys.
+export function suggestionsFor(spec, images = [], site = null) {
   if (!spec) return [];
   const types = new Set(spec.sections.map((s) => s.type));
   const featured = images.filter((i) => i.kind === "featured");
   const out = [];
-  if (!featured.length) out.push({ label: "Add your photos", instruction: "", action: "photos" });
-  else if (!types.has("gallery") && featured.length >= 3) out.push({ label: "Add a photo gallery", instruction: "Add a gallery section with all my photos, placed before the contact section." });
-  if (!types.has("testimonials")) out.push({ label: "Add a customer review", instruction: 'Add a reviews section with this review from a customer: ""' });
-  if (!spec.meta.hours?.length) out.push({ label: "Add opening hours", instruction: "Add our opening hours: Monday to Friday 9:00 to 18:00, Saturday 10:00 to 14:00, closed on Sunday." });
-  if (!types.has("faq")) out.push({ label: "Add an FAQ", instruction: "Add a short FAQ section with the questions customers ask most, before the contact section." });
-  if (!spec.meta.bookingUrl && /book|appoint|reserv/i.test(`${spec.meta.category} ${spec.nav.cta?.label || ""}`)) out.push({ label: "Add a booking link", instruction: "Make the main button open my booking page: https://" });
-  out.push({ label: "Make the headline punchier", instruction: "Make the headline punchier and more specific to us." });
-  out.push({ label: "Try a warmer look", instruction: "Make the whole site feel warmer and friendlier." });
-  out.push({ label: "Shorter text", instruction: "Shorten all the text so it reads faster on a phone." });
-  return out.slice(0, 6);
+  const push = (s) => { if (s?.label && !out.some((o) => o.label.toLowerCase() === s.label.toLowerCase())) out.push(s); };
+  if (!featured.length) push({ label: "Add your photos", instruction: "", action: "photos" });
+  else if (!types.has("gallery") && featured.length >= 3) push({ label: "Add a photo gallery", instruction: "Add a gallery section with all my photos, placed before the contact section." });
+  for (const idea of parseJson(site?.suggestions_json, []) || []) push({ label: idea.label, instruction: idea.instruction, action: null });
+  if (!types.has("testimonials")) push({ label: "Add a customer review", instruction: 'Add a reviews section with this review from a customer: ""' });
+  if (!spec.meta.hours?.length) push({ label: "Add opening hours", instruction: "Add our opening hours: Monday to Friday 9:00 to 18:00, Saturday 10:00 to 14:00, closed on Sunday." });
+  if (!types.has("faq")) push({ label: "Add an FAQ", instruction: "Add a short FAQ section with the questions customers ask most, before the contact section." });
+  if (!spec.meta.bookingUrl && /book|appoint|reserv/i.test(`${spec.meta.category} ${spec.nav.cta?.label || ""}`)) push({ label: "Add a booking link", instruction: "Make the main button open my booking page: https://" });
+  push({ label: "Make the headline punchier", instruction: "Make the headline punchier and more specific to us." });
+  push({ label: "Shorter text", instruction: "Shorten all the text so it reads faster on a phone." });
+  return out.slice(0, 7);
 }
+
+// Asks the model for fresh ideas and caches them on the site. Runs in the background
+// after every generation and edit; failures only mean the chips stay as they were.
+export async function refreshSuggestions(siteId) {
+  const site = getSite(siteId);
+  const spec = parseJson(site?.spec_json);
+  if (!site || !spec) return;
+  try {
+    const ideas = await suggestIdeas({ spec, brief: parseJson(site.brief_json), userId: site.user_id, siteId });
+    if (ideas.length) run("UPDATE sites SET suggestions_json = ? WHERE id = ?", JSON.stringify(ideas), siteId);
+  } catch (e) {
+    console.warn(`[suggest] ${siteId}: ${e.message}`);
+  }
+}
+
+onJobDone((job) => {
+  if (["generate", "edit"].includes(job.type) && job.site_id) refreshSuggestions(job.site_id);
+});
 
 export function publicSite(site, { withSpec = true } = {}) {
   const images = withSpec ? imagesForSite(site.id) : null;
@@ -85,7 +106,7 @@ export function publicSite(site, { withSpec = true } = {}) {
     suspended: Boolean(site.suspended_reason),
     suspendedReason: site.suspended_reason || null,
     stats: viewsFor(site.id),
-    suggestions: withSpec && spec ? suggestionsFor(spec, images) : undefined,
+    suggestions: withSpec && spec ? suggestionsFor(spec, images, site) : undefined,
     images: withSpec ? images.map(stripPrivate) : undefined,
   };
 }
