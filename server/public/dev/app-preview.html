@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex">
 <title>Frontage · app preview</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,900&family=Inter:wght@400;500;600;700&display=swap">
 <style>
 :root{--paper:#f6f3ec;--card:#fffdf8;--ink:#17201b;--muted:#5f665f;--green:#1f4d3a;--coral:#e0623d;--line:rgba(23,32,27,.11);--ok:#298c59}
 *{box-sizing:border-box}
@@ -112,10 +112,9 @@ input.big{font-family:Fraunces,serif;font-size:26px;width:100%;border:0;backgrou
 .inputrow .clip{width:40px;height:40px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;font-size:18px;cursor:pointer;position:relative;flex:none}
 .inputrow .clip input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
 .attachrow{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px}.attachrow .tile{width:64px;height:64px;flex:none;aspect-ratio:auto}
-.mark{width:26px;height:26px;border-radius:8px;background:var(--green);position:relative;display:inline-block}
-.mark::after{content:"";position:absolute;left:7px;right:7px;top:11px;height:4px;background:var(--coral);border-radius:2px}
+.mark{width:26px;height:26px;display:inline-block;flex:none;vertical-align:middle}.mark svg{display:block;width:100%;height:100%}
 .brand-row{display:flex;align-items:center;gap:10px;font-family:Fraunces,serif;font-size:24px;font-weight:600;margin:20px 0 26px}
-.brand-row .mark{width:42px;height:42px;border-radius:12px}.brand-row .mark::after{left:11px;right:11px;top:18px;height:6px}
+.brand-row .mark{width:42px;height:42px}
 /* sheets */
 .sheetbg{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:30}
 .sheet{position:absolute;left:0;right:0;bottom:0;top:60px;background:var(--paper);border-radius:22px 22px 0 0;z-index:31;display:flex;flex-direction:column;box-shadow:0 -10px 40px rgba(0,0,0,.2)}
@@ -194,6 +193,7 @@ if (location.protocol === "file:") {
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // Inline stroke icons drawn for this preview (no emoji, no third-party icon sets).
+const MARK = '<svg viewBox="0 0 1024 1024" aria-hidden="true" focusable="false"><rect width="1024" height="1024" rx="230" fill="#1F4D3A"/><path d="M120 140H904V300a56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0Z" fill="#F6F3EC"/><path d="M232 140h112v160a56 56 0 0 1-112 0Zm224 0h112v160a56 56 0 0 1-112 0Zm224 0h112v160a56 56 0 0 1-112 0Z" fill="#E0623D"/><text x="512" y="892" text-anchor="middle" font-family="Fraunces,Georgia,serif" font-weight="900" font-size="600" fill="#F6F3EC">F</text></svg>';
 const SVG_ICONS = {
   phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
   monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
@@ -319,10 +319,10 @@ const chips = (items, selected, act, extra = "") => `<div class="chips">${items.
 const photoGrid = (list, kind, max, { note = "" } = {}) => `<div class="grid3">${list.map((p) => `<div class="tile">${p.thumb ? `<img src="${p.thumb}">` : ""}${p.uploading ? `<div class="spin">Uploading</div>` : ""}${p.failed ? `<div class="spin">Failed</div>` : ""}<button class="x" data-act="removePhoto" data-kind="${kind}" data-id="${p.id}">✕</button></div>`).join("")}${list.length < max ? `<label class="tile add">＋ ${list.length ? "Add more" : "Add photos"}<input type="file" accept="image/*" ${max > 1 ? "multiple" : ""} data-file="${kind}"></label>${kind !== "reference" ? `<label class="tile add" title="Camera (the app offers Take photo / Choose from library)">${ic("camera")} Take photo<input type="file" accept="image/*" capture="environment" data-file="${kind}"></label>` : ""}` : ""}</div>${note ? `<p class="small" style="margin-top:8px">${note}</p>` : ""}`;
 
 const SCREENS = {
-  splash: () => `<div class="page center" style="justify-content:center;align-items:center"><span class="mark" style="width:56px;height:56px;border-radius:16px"></span><h2 class="display" style="margin-top:14px">Frontage</h2><p class="small">Loading…</p></div>`,
+  splash: () => `<div class="page center" style="justify-content:center;align-items:center"><span class="mark" style="width:56px;height:56px">${MARK}</span><h2 class="display" style="margin-top:14px">Frontage</h2><p class="small">Loading…</p></div>`,
 
   welcome: () => `<div class="page"><div class="scroll" style="padding-top:70px;display:flex;flex-direction:column">
-    <div class="brand-row"><span class="mark"></span>Frontage</div>
+    <div class="brand-row"><span class="mark">${MARK}</span>Frontage</div>
     <span style="display:inline-block;align-self:flex-start;background:rgba(31,77,59,.1);color:var(--green);font-weight:700;font-size:13px;padding:6px 12px;border-radius:999px;margin-bottom:14px">Your first website is free</span>
     <h1 class="display">A flawless website for your business.</h1>
     <p class="lead">Answer a few questions, add your photos, and see your finished site in minutes. No card needed. Subscribe only when you want to make changes or go live.</p>
@@ -413,7 +413,7 @@ const SCREENS = {
       <div class="viewtabs"><button class="${S.desktop ? "" : "on"}" data-act="viewPhone">${ic("phone")} Phone</button><button class="${S.desktop ? "on" : ""}" data-act="viewDesktop">${ic("monitor")} Desktop</button></div>
       <div class="previewwrap${S.applying ? " hidden" : ""}">
         ${S.desktop ? `<div class="dt"><iframe src="${esc(url)}"></iframe></div>` : `<iframe class="pv" src="${esc(url)}"></iframe>`}
-        ${S.applying ? `<div class="applying"><div class="ring"><span class="mark"></span></div><h2 class="display" style="font-size:22px;margin:0">Applying your changes now</h2><p class="small" style="margin:0">${esc(S.applying)}</p><p class="small" style="margin:0;max-width:260px">Your site is hidden while it updates. This usually takes about ten seconds.</p></div>` : ""}
+        ${S.applying ? `<div class="applying"><div class="ring"><span class="mark">${MARK}</span></div><h2 class="display" style="font-size:22px;margin:0">Applying your changes now</h2><p class="small" style="margin:0">${esc(S.applying)}</p><p class="small" style="margin:0;max-width:260px">Your site is hidden while it updates. This usually takes about ten seconds.</p></div>` : ""}
       </div>
       ${S.chatOpen || S.applying ? `<div class="chatpanel"><div class="chead"><span>Conversation</span>${S.applying ? "" : `<button class="link" data-act="closeChat">Hide</button>`}</div><div class="clist" id="clist">${!S.history.length && !S.pending && !S.applying ? `<p class="small center" style="margin:24px 0">Ask for any change below. Frontage answers here and updates the site above.</p>` : ""}${S.history.map((m) => `<div class="msg ${m.role === "user" ? "user" : "ai"}">${esc(m.content)}</div>`).join("")}${S.pending ? `<div class="msg user">${esc(S.pending)}</div>` : ""}${S.applying ? `<div class="typing">● ${esc(S.applying)}</div>` : ""}</div></div>` : (S.history.length ? `<button class="chattoggle" data-act="openChat">${ic("chat", 16)} Conversation · ${S.history.length}</button>` : "")}
       <div class="composer">${S.composer || S.attach.length ? "" : `<div class="chiprow">${(s.suggestions?.length ? s.suggestions : SUGGEST.map((t) => ({ label: t, instruction: t }))).map((c) => `<button class="chip" data-act="suggest" data-v="${esc(c.instruction || "")}" data-action="${esc(c.action || "")}">${esc(c.label)}</button>`).join("")}</div>`}

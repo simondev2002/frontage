@@ -1,6 +1,7 @@
 // App Store screenshots from the browser preview: captures the phone screen at 3x for
 // six key moments, then composes each into marketing frames for the two iPhone slots
-// App Store Connect offers (6.9-inch 1290x2796 and 6.5-inch 1284x2778).
+// App Store Connect offers (6.9-inch 1290x2796 and 6.5-inch 1284x2778), using a real
+// iPhone bezel image (FRAME env var, a PNG with a transparent screen cutout).
 import { chromium } from "playwright";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,8 +11,15 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const BASE = "http://localhost:5150";
 const TOKEN = process.env.TOKEN;
 const HERO = process.env.HERO || ""; // optional picsum photo id to swap into the bakery hero
+const FRAME = process.env.FRAME || path.join(process.env.USERPROFILE || "", "Desktop", "iphones.png");
 const OUT = process.argv[2] || path.join(here, "out");
 if (!TOKEN) { console.error("TOKEN env var (dev bearer token) required"); process.exit(1); }
+if (!fs.existsSync(FRAME)) { console.error("bezel image not found: " + FRAME + " (set FRAME=path/to/iphones.png)"); process.exit(1); }
+
+// Geometry of the bezel image (measured: transparent screen cutout with 96px corners,
+// Dynamic Island drawn in the bezel, phone body box for the drop shadow).
+const F = { w: 941, h: 1672, sx: 119, sy: 82, sw: 703, sh: 1507, r: 96, bx: 63, by: 19, bw: 813, bh: 1620, br: 150 };
+const frameB64 = fs.readFileSync(FRAME).toString("base64");
 
 const SIZES = [
   { dir: "iphone-6.9", w: 1290, h: 2796 },
@@ -85,6 +93,11 @@ async function swapHero(page, src) {
   await page.waitForTimeout(300);
 }
 
+// Capture-time CSS: the bezel image draws its own Dynamic Island, so the preview's is hidden,
+// the screen takes the bezel cutout's aspect ratio (369 x 791) and the status bar text sits
+// level with the island.
+const CAPTURE_CSS = ".phone > .island{display:none}.phone{height:815px}.statusbar{height:44px}";
+
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1300, height: 960 }, deviceScaleFactor: 3, locale: "en-US", timezoneId: "Europe/Nicosia" });
 const page = await context.newPage();
@@ -94,16 +107,20 @@ const ctx = { siteId: site.id };
 const captures = [];
 for (const shot of SHOTS) {
   await shot.setup(page, ctx);
-  await page.addStyleTag({ content: ".phone > .island{display:none}" }); await page.waitForTimeout(150);
+  await page.addStyleTag({ content: CAPTURE_CSS }); await page.waitForTimeout(200);
   const buf = await page.locator(".screen").screenshot({ type: "png" });
   captures.push({ ...shot, data: buf.toString("base64") });
   console.log("captured", shot.file);
 }
 
-// Compose: headline on top, phone frame below, once per slot size.
+// Compose: headline on top, the whole phone below it (nothing cut off), once per slot size.
+const TOP = 640, BOTTOM = 90;
 const frame = await browser.newPage({ deviceScaleFactor: 1 });
 for (const size of SIZES) {
   await frame.setViewportSize({ width: size.w, height: size.h });
+  const s = (size.h - TOP - BOTTOM) / F.h;
+  const px = (v) => (v * s).toFixed(2) + "px";
+  const left = ((size.w - F.w * s) / 2).toFixed(2);
   for (const c of captures) {
     const html = `<!doctype html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700&family=Inter:wght@500;600&display=swap" rel="stylesheet">
@@ -113,13 +130,14 @@ for (const size of SIZES) {
   .copy{padding:150px 100px 0;text-align:center}
   h1{font-family:Fraunces,Georgia,serif;font-weight:700;font-size:96px;line-height:1.05;letter-spacing:-.02em;margin:0 0 30px}
   p{font-size:40px;line-height:1.35;margin:0 auto;max-width:980px;opacity:.88;font-weight:500}
-  .phone{position:absolute;left:50%;transform:translateX(-50%);top:700px;width:980px;height:2134px;background:#111;border-radius:120px;padding:26px;box-shadow:0 60px 120px -40px rgba(0,0,0,.45)}
-  .screen{width:100%;height:100%;border-radius:106px;overflow:hidden;background:#F6F3EC}
-  .screen img{width:100%;height:100%;object-fit:fill;display:block}
-  .island{position:absolute;top:76px;left:50%;transform:translateX(-50%);width:300px;height:84px;background:#111;border-radius:44px}
+  .stage{position:absolute;left:${left}px;top:${TOP}px;width:${px(F.w)};height:${px(F.h)}}
+  .shadow{position:absolute;left:${px(F.bx)};top:${px(F.by)};width:${px(F.bw)};height:${px(F.bh)};border-radius:${px(F.br)};box-shadow:0 70px 130px -40px rgba(0,0,0,.55)}
+  .shot{position:absolute;left:${px(F.sx)};top:${px(F.sy)};width:${px(F.sw)};height:${px(F.sh)};border-radius:${px(F.r)};overflow:hidden;background:#F6F3EC}
+  .shot img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+  .frame{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
 </style></head><body>
 <div class="copy"><h1>${esc(c.title)}</h1><p>${esc(c.sub)}</p></div>
-<div class="phone"><div class="screen"><img src="data:image/png;base64,${c.data}"></div><div class="island"></div></div>
+<div class="stage"><div class="shadow"></div><div class="shot"><img src="data:image/png;base64,${c.data}"></div><img class="frame" src="data:image/png;base64,${frameB64}"></div>
 </body></html>`;
     await frame.setContent(html, { waitUntil: "load" });
     await frame.evaluate(async () => { await document.fonts.ready; });

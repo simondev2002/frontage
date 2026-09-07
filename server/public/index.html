@@ -8,7 +8,7 @@
 <meta property="og:title" content="Frontage · Your business, online in minutes">
 <meta property="og:description" content="A flawless website for your business, built from your phone. From $9.99/month.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,900&family=Inter:wght@400;500;600&display=swap">
 <style>
 :root{--ink:#17201b;--paper:#f6f3ec;--card:#fffdf8;--green:#1f4d3a;--coral:#e0623d;--muted:#5f665f;--line:rgba(23,32,27,.12)}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
@@ -20,8 +20,7 @@ h1{font-size:clamp(2.8rem,7vw,5.6rem)}h2{font-size:clamp(2rem,4.5vw,3.2rem)}h3{f
 header{position:sticky;top:0;z-index:5;background:rgba(246,243,236,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 header .wrap{display:flex;align-items:center;justify-content:space-between;height:68px}
 .logo{font-family:Fraunces,serif;font-weight:600;font-size:1.35rem;display:flex;align-items:center;gap:10px}
-.logo i{width:26px;height:26px;border-radius:7px;background:var(--green);display:inline-block;position:relative}
-.logo i::after{content:"";position:absolute;left:6px;right:6px;top:11px;height:4px;background:var(--coral);border-radius:2px}
+.logo i{width:26px;height:26px;display:inline-block;flex:none}.logo i svg{display:block;width:100%;height:100%}
 nav a{margin-left:26px;font-weight:500;font-size:.95rem;opacity:.85}
 .btn{display:inline-flex;align-items:center;gap:8px;padding:14px 24px;border-radius:12px;font-weight:600;background:var(--ink);color:#fff;transition:transform .15s}
 .btn:hover{transform:translateY(-1px)}.btn.green{background:var(--green)}.btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
@@ -62,7 +61,7 @@ footer a{margin-right:18px}
 </style>
 </head>
 <body>
-<header><div class="wrap"><a class="logo" href="/"><i></i>Frontage</a><nav><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/support">Support</a></nav><a class="btn green" href="#download">Get the app</a></div></header>
+<header><div class="wrap"><a class="logo" href="/"><i><svg viewBox="0 0 1024 1024" aria-hidden="true" focusable="false"><rect width="1024" height="1024" rx="230" fill="#1F4D3A"/><path d="M120 140H904V300a56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0 56 56 0 0 1-112 0Z" fill="#F6F3EC"/><path d="M232 140h112v160a56 56 0 0 1-112 0Zm224 0h112v160a56 56 0 0 1-112 0Zm224 0h112v160a56 56 0 0 1-112 0Z" fill="#E0623D"/><text x="512" y="892" text-anchor="middle" font-family="Fraunces,Georgia,serif" font-weight="900" font-size="600" fill="#F6F3EC">F</text></svg></i>Frontage</a><nav><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="/support">Support</a></nav><a class="btn green" href="#download">Get the app</a></div></header>
 
 <section class="hero"><div class="wrap grid">
 <div>

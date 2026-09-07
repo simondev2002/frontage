@@ -33,17 +33,16 @@ struct SplashView: View {
     }
 }
 
-/// The logo: a green tile with a coral awning stripe.
+/// The logo: the app icon (a striped awning over a serif F) as a rounded tile.
 struct BrandMark: View {
     var size: CGFloat = 40
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(Theme.green)
+        Image("BrandMark")
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
             .frame(width: size, height: size)
-            .overlay(
-                Capsule().fill(Theme.coral)
-                    .frame(width: size * 0.5, height: size * 0.14)
-                    .offset(y: -size * 0.02)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
+            .accessibilityHidden(true)
     }
 }
