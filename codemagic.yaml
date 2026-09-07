@@ -69,7 +69,11 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # Upload only. The internal "Frontage team" group has automatic distribution, so
+        # every build reaches it without beta review. Switch to true and add
+        # beta_groups once the server is live and the TestFlight test information
+        # (feedback email, review contact, sign-in) is filled in.
+        submit_to_testflight: false
 
   # Cheap sanity check for the Node server on every push (no Mac minutes used).
   server-check:
