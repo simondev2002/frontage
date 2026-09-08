@@ -382,8 +382,9 @@ struct SiteEditorView: View {
 
     private func deleteSite() async {
         do {
-            try await APIClient.shared.deleteSite(siteId)
+            let e = try await APIClient.shared.deleteSite(siteId)
             app.remove(siteId: siteId)
+            if let e { app.entitlement = e } else { await app.refreshEntitlement() }
             dismiss()
         } catch { app.handle(error) }
     }

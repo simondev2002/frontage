@@ -133,7 +133,12 @@ final class APIClient {
         let r: SiteResponse = try await json("PATCH", "api/sites/\(siteId)", body: b); return r.site
     }
     func slugCheck(_ slug: String, siteId: String) async throws -> SlugCheck { try await json("GET", "api/slug-check", query: ["slug": slug, "site": siteId]) }
-    func deleteSite(_ id: String) async throws { _ = try await request("DELETE", "api/sites/\(id)") }
+    /// Returns the entitlement after the delete so the site count is fresh immediately.
+    func deleteSite(_ id: String) async throws -> Entitlement? {
+        struct R: Decodable { var entitlement: Entitlement? }
+        let r: R = try await json("DELETE", "api/sites/\(id)")
+        return r.entitlement
+    }
     func publish(_ id: String) async throws -> Site { let r: SiteResponse = try await json("POST", "api/sites/\(id)/publish"); return r.site }
     func unpublish(_ id: String) async throws -> Site { let r: SiteResponse = try await json("POST", "api/sites/\(id)/unpublish"); return r.site }
 

@@ -415,7 +415,8 @@ export function registerSiteRoutes(router) {
     const site = ownedSite(ctx);
     run("DELETE FROM sites WHERE id = ?", site.id);
     invalidateLive(site.id);
-    return { ok: true };
+    // The fresh entitlement lets the app unlock "New website" straight away.
+    return { ok: true, entitlement: entitlement(ctx.user.id) };
   });
 
   // ---- AI jobs

@@ -62,7 +62,10 @@ struct HomeView: View {
                     Button { open(site) } label: { SiteCard(site: site) }
                         .buttonStyle(.plain)
                 }
-                Button {
+                AsyncButton {
+                    // The cached count can be stale (a site deleted moments ago), so
+                    // confirm with the server before telling the owner no.
+                    if (app.entitlement?.remaining.sites ?? 0) <= 0 { await app.refreshEntitlement() }
                     let n = app.entitlement?.plan.sites ?? 1
                     let plural = "\(n) website\(n == 1 ? "" : "s")"
                     if (app.entitlement?.remaining.sites ?? 0) > 0 {
