@@ -44,9 +44,9 @@ struct SettingsView: View {
                     }
                     AsyncButton {
                         do {
-                            if let e = try await store.restore(), e.isPaid { app.entitlement = e; feedback.toast ="Purchases restored." }
-                            else { feedback.toast ="No purchases found for this Apple ID." }
-                        } catch { feedback.toast ="Could not restore right now." }
+                            if let e = try await store.restore(), e.isPaid { app.entitlement = e; feedback.toast = "Purchases restored." }
+                            else { feedback.toast = "No purchases found for this Apple ID." }
+                        } catch { feedback.toast = "Could not restore right now." }
                     } label: { Text("Restore purchases") }
                 }
 
@@ -61,7 +61,7 @@ struct SettingsView: View {
                             Task {
                                 do {
                                     app.user = try await APIClient.shared.setAiConsent(false)
-                                    feedback.toast ="Consent withdrawn. AI features will ask again."
+                                    feedback.toast = "Consent withdrawn. AI features will ask again."
                                 } catch { feedback.fail(error) }
                             }
                         }
@@ -74,7 +74,7 @@ struct SettingsView: View {
                             // Once denied, iOS never shows the prompt again; the switch lives in Settings.
                             let settings = await UNUserNotificationCenter.current().notificationSettings()
                             if settings.authorizationStatus == .denied {
-                                feedback.toast ="Turn on notifications for Frontage in Settings."
+                                feedback.toast = "Turn on notifications for Frontage in Settings."
                                 if let url = URL(string: UIApplication.openSettingsURLString) { await UIApplication.shared.open(url) }
                             } else {
                                 AppDelegate.requestPushPermission()
