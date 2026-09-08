@@ -114,7 +114,7 @@ router.post("/api/admin/subscription", async (ctx) => {
   }
   if (!["starter", "business"].includes(body.tier)) throw new HttpError(400, "bad_tier", "tier must be starter, business or null");
   const months = Math.min(120, Math.max(1, Number(body.months) || 12));
-  const expires = now() + months * 30 * 86400;
+  const expires = now() + months * 30 * 86400 * 1000; // timestamps are milliseconds
   run(
     `INSERT INTO subscriptions (id, user_id, provider, provider_ref, product_id, tier, status, expires_at, auto_renew, environment, raw_json, updated_at)
      VALUES (?, ?, 'manual', ?, NULL, ?, 'active', ?, 0, 'manual', ?, ?)
