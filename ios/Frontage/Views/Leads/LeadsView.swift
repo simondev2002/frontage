@@ -6,11 +6,20 @@ struct LeadsView: View {
     @Environment(AppState.self) private var app
     @State private var leads: [Lead] = []
     @State private var loaded = false
+    @State private var loadError: String?
     @State private var selected: Lead?
 
     var body: some View {
         Group {
-            if loaded && leads.isEmpty {
+            if let loadError, leads.isEmpty {
+                // A failed fetch must not look like "no messages yet".
+                VStack(spacing: 12) {
+                    Image(systemName: "wifi.exclamationmark").font(.system(size: 40)).foregroundStyle(Theme.muted)
+                    Text(loadError).font(Theme.body(15)).foregroundStyle(Theme.coral).multilineTextAlignment(.center)
+                    AsyncButton { await load() } label: { Text("Retry") }.buttonStyle(SecondaryButtonStyle())
+                }
+                .padding(32)
+            } else if loaded && leads.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "tray").font(.system(size: 40)).foregroundStyle(Theme.muted)
                     Text("No messages yet").font(Theme.display(24))
@@ -49,7 +58,14 @@ struct LeadsView: View {
     }
 
     private func load() async {
-        if let r = try? await APIClient.shared.leads(siteId) { leads = r.leads }
+        do {
+            let r = try await APIClient.shared.leads(siteId)
+            leads = r.leads
+            loadError = nil
+        } catch {
+            loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            if !leads.isEmpty { app.handle(error) }
+        }
         loaded = true
     }
     private func open(_ lead: Lead) {
@@ -60,7 +76,11 @@ struct LeadsView: View {
         }
     }
     private func delete(_ lead: Lead) async {
-        do { try await APIClient.shared.deleteLead(lead.id); leads.removeAll { $0.id == lead.id } } catch { app.handle(error) }
+        do {
+            try await APIClient.shared.deleteLead(lead.id)
+            leads.removeAll { $0.id == lead.id }
+            await app.refreshSites()   // unread badge on the site card
+        } catch { app.handle(error) }
     }
 }
 

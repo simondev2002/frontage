@@ -39,7 +39,14 @@ struct PublishSheet: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .onAppear {
                 slug = site.slug ?? ""
-                if site.customDomain != nil { Task { domain = try? await APIClient.shared.domain(site.id) } }
+                if site.customDomain != nil {
+                    Task {
+                        do { domain = try await APIClient.shared.domain(site.id) } catch {
+                            // Offline: show what the site record already knows so the domain card still renders.
+                            domain = DomainInfo(domain: site.customDomain, status: site.customDomainStatus, records: [], checkedAt: nil, provider: nil)
+                        }
+                    }
+                }
             }
             .overlay { if working { LoadingOverlay(text: "One moment") } }
             .sheet(item: $paywall, onDismiss: {
@@ -191,10 +198,12 @@ struct PublishSheet: View {
         let s = slug.lowercased()
         guard s != site.slug, s.count >= 2 else { slugCheck = nil; return }
         checkingSlug = true
+        defer { checkingSlug = false }
         try? await Task.sleep(for: .milliseconds(400))
         guard s == slug.lowercased() else { return }
-        slugCheck = try? await APIClient.shared.slugCheck(s, siteId: site.id)
-        checkingSlug = false
+        do { slugCheck = try await APIClient.shared.slugCheck(s, siteId: site.id) } catch {
+            self.error = "Couldn't check that address. Try again."
+        }
     }
     private func saveSlug() async {
         do { let s = try await APIClient.shared.updateSite(site.id, slug: slug.lowercased()); site = s; onChanged(s); slugCheck = nil } catch { fail(error) }

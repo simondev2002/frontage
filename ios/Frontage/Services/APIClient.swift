@@ -183,8 +183,14 @@ final class APIClient {
     // MARK: Billing
 
     func sendTransactions(_ jws: [String]) async throws -> Entitlement {
-        struct R: Decodable { var entitlement: Entitlement }
-        let r: R = try await json("POST", "api/billing/apple/transactions", body: ["transactions": jws]); return r.entitlement
+        struct TxResult: Decodable { var productId: String?; var status: String?; var error: String?; var message: String? }
+        struct R: Decodable { var entitlement: Entitlement; var results: [TxResult]? }
+        let r: R = try await json("POST", "api/billing/apple/transactions", body: ["transactions": jws])
+        // The server answers 200 even when it rejected a transaction; the rejection sits in results[].
+        if let rejected = r.results?.first(where: { !($0.error ?? "").isEmpty }) {
+            throw APIError.http(status: 200, body: APIErrorBody(error: rejected.error ?? "invalid", message: rejected.message ?? "This purchase could not be verified.", requiredTier: nil, currentTier: nil))
+        }
+        return r.entitlement
     }
     func entitlement() async throws -> Entitlement {
         struct R: Decodable { var entitlement: Entitlement }
@@ -192,7 +198,9 @@ final class APIClient {
     }
     func webCheckoutLink(tier: String) async throws -> URL {
         struct R: Decodable { var url: String }
-        let r: R = try await json("POST", "api/billing/stripe/link", body: ["tier": tier]); return URL(string: r.url)!
+        let r: R = try await json("POST", "api/billing/stripe/link", body: ["tier": tier])
+        guard let url = URL(string: r.url) else { throw APIError.decoding(URLError(.badURL)) }
+        return url
     }
     #if DEBUG
     func devSubscription(tier: String?) async throws -> Entitlement {

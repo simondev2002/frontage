@@ -5,6 +5,8 @@ struct GeneratingView: View {
     var jobId: String
     var onDone: (Site) -> Void
     var onRetry: () -> Void
+    /// Label of the primary button after a failure. Callers whose `onRetry` only pops pass "Back".
+    var retryLabel: String = "Try again"
 
     @Environment(AppState.self) private var app
     @State private var job: Job?
@@ -51,9 +53,12 @@ struct GeneratingView: View {
             if failed != nil {
                 VStack(spacing: 10) {
                     if failedCode != "not_configured" {
-                        Button("Try again") { onRetry() }.buttonStyle(PrimaryButtonStyle(fill: Theme.green))
+                        Button(retryLabel) { onRetry() }.buttonStyle(PrimaryButtonStyle(fill: Theme.green))
                     }
-                    Button("Back") { onRetry() }.buttonStyle(SecondaryButtonStyle())
+                    // Both buttons do the same thing; do not show "Back" twice.
+                    if retryLabel != "Back" || failedCode == "not_configured" {
+                        Button("Back") { onRetry() }.buttonStyle(SecondaryButtonStyle())
+                    }
                 }
                 .padding(24)
             }
@@ -70,9 +75,11 @@ struct GeneratingView: View {
     }
 
     private func poll() async {
+        var failures = 0
         while !Task.isCancelled {
             do {
                 let r = try await APIClient.shared.job(jobId)
+                failures = 0
                 job = r.job
                 if r.job.status == "done" {
                     var site = r.site
@@ -92,7 +99,13 @@ struct GeneratingView: View {
                     return
                 }
             } catch {
-                // transient network problems: keep polling
+                // Transient network problems: keep polling, but give up after a stretch of them
+                // so the owner gets the buttons back instead of a screen with no way out.
+                failures += 1
+                if failures >= 10 {
+                    failed = (error as? LocalizedError)?.errorDescription ?? "Can't reach Frontage. Check your connection and try again."
+                    return
+                }
             }
             try? await Task.sleep(for: .milliseconds(1500))
         }

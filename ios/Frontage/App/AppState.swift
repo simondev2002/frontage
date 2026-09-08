@@ -17,6 +17,8 @@ final class AppState {
     var entitlement: Entitlement?
     var config: ServerConfig?
     var sites: [Site] = []
+    /// True once the site list has been fetched successfully; an empty list before that is "still loading", not "no sites".
+    var sitesLoaded = false
     var aiAvailable = true
     var paywall: PaywallRequest?
     var toast: String?
@@ -41,6 +43,7 @@ final class AppState {
             sites = s.sites
             entitlement = s.entitlement
             aiAvailable = s.aiAvailable
+            sitesLoaded = true
             phase = .ready
             if let t = pendingPushToken { try? await api.registerDevice(token: t); pendingPushToken = nil }
         } catch APIError.unauthorized {
@@ -48,6 +51,20 @@ final class AppState {
         } catch {
             // Offline with a cached token: still let the user in; views retry on their own.
             if api.token != nil { phase = .ready } else { phase = .signedOut }
+            toast = (error as? APIError)?.errorDescription
+        }
+    }
+
+    /// Loads the user, entitlement and config again after a bootstrap that failed offline (`user == nil`).
+    func retryBootstrap() async {
+        guard user == nil, api.token != nil else { return }
+        do {
+            let me = try await api.me()
+            apply(me)
+            if let t = pendingPushToken { try? await api.registerDevice(token: t); pendingPushToken = nil }
+        } catch APIError.unauthorized {
+            becomeSignedOut()
+        } catch {
             toast = (error as? APIError)?.errorDescription
         }
     }
@@ -70,7 +87,7 @@ final class AppState {
     }
 
     private func becomeSignedOut() {
-        user = nil; entitlement = nil; sites = []; paywall = nil
+        user = nil; entitlement = nil; sites = []; sitesLoaded = false; paywall = nil
         phase = .signedOut
     }
 
@@ -84,14 +101,25 @@ final class AppState {
     // MARK: Data
 
     func refreshSites() async {
-        guard let s = try? await api.sites() else { return }
-        sites = s.sites
-        entitlement = s.entitlement
-        aiAvailable = s.aiAvailable
+        // A bootstrap that failed offline left no user/config; pick those up with the sites.
+        if user == nil { await retryBootstrap() }
+        do {
+            let s = try await api.sites()
+            sites = s.sites
+            entitlement = s.entitlement
+            aiAvailable = s.aiAvailable
+            sitesLoaded = true
+        } catch {
+            if case APIError.unauthorized = error { return }
+            toast = "Couldn't refresh. Check your connection."
+        }
     }
 
     func refreshEntitlement() async {
-        if let e = try? await api.entitlement() { entitlement = e }
+        do { entitlement = try await api.entitlement() } catch {
+            if case APIError.unauthorized = error { return }
+            toast = "Couldn't refresh. Check your connection."
+        }
     }
 
     func upsert(_ site: Site) {

@@ -154,7 +154,8 @@ struct JobResponse: Codable {
 }
 struct CreateSiteResponse: Codable {
     var site: Site
-    var job: Job
+    /// Missing when the site was saved but the generation job could not be queued.
+    var job: Job?
 }
 
 struct ChatMessage: Codable, Identifiable, Equatable {

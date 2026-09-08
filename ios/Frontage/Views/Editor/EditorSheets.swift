@@ -8,12 +8,21 @@ struct HistorySheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var messages: [ChatMessage] = []
     @State private var loaded = false
+    @State private var loadError: String?
+    @State private var feedback = SheetFeedback()
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
-                    if loaded && messages.isEmpty {
+                    if let loadError, messages.isEmpty {
+                        // A failed fetch must not look like "no changes yet".
+                        VStack(spacing: 12) {
+                            Text(loadError).font(Theme.body(15)).foregroundStyle(Theme.coral).multilineTextAlignment(.center)
+                            AsyncButton { await load() } label: { Text("Retry").font(Theme.body(15, weight: .semibold)) }.buttonStyle(.bordered).tint(Theme.green)
+                        }
+                        .padding(.top, 40).frame(maxWidth: .infinity)
+                    } else if loaded && messages.isEmpty {
                         Text("No changes yet. Ask for one from the editor.").font(Theme.body(15)).foregroundStyle(Theme.muted).padding(.top, 40).frame(maxWidth: .infinity)
                     }
                     ForEach(messages) { m in
@@ -33,8 +42,20 @@ struct HistorySheet: View {
             .background(Theme.paper.ignoresSafeArea())
             .navigationTitle("Change history").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .task { messages = (try? await APIClient.shared.messages(siteId)) ?? []; loaded = true }
+            .task { await load() }
+            .sheetFeedback($feedback)
         }
+    }
+
+    private func load() async {
+        do {
+            messages = try await APIClient.shared.messages(siteId)
+            loadError = nil
+        } catch {
+            loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            feedback.fail(error)
+        }
+        loaded = true
     }
 }
 
@@ -46,11 +67,19 @@ struct VersionsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var app
     @State private var versions: [SiteVersion] = []
+    @State private var loadError: String?
     @State private var feedback = SheetFeedback()
 
     var body: some View {
         NavigationStack {
             List {
+                if let loadError, versions.isEmpty {
+                    // A failed fetch must not look like an empty history.
+                    Section {
+                        Text(loadError).font(Theme.body(15)).foregroundStyle(Theme.coral)
+                        AsyncButton { await load() } label: { Text("Retry").font(Theme.body(15, weight: .semibold)) }
+                    }
+                }
                 Section {
                     ForEach(Array(versions.enumerated()), id: \.element.id) { i, v in
                         HStack {
@@ -71,10 +100,18 @@ struct VersionsSheet: View {
             .scrollContentBackground(.hidden).background(Theme.paper.ignoresSafeArea())
             .navigationTitle("Versions").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .task {
-                do { versions = try await APIClient.shared.versions(siteId) } catch { feedback.fail(error) }
-            }
+            .task { await load() }
             .sheetFeedback($feedback)
+        }
+    }
+
+    private func load() async {
+        do {
+            versions = try await APIClient.shared.versions(siteId)
+            loadError = nil
+        } catch {
+            loadError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            feedback.fail(error)
         }
     }
 
@@ -143,6 +180,7 @@ struct DetailsSheet: View {
                 ToolbarItem(placement: .confirmationAction) { AsyncButton { await save() } label: { Text("Save").bold() } }
             }
             .onAppear(perform: seed)
+            .onChange(of: site) { _, _ in seed() }   // the parent may finish loading the spec after the sheet opened
             .sheetFeedback($feedback)
         }
     }
@@ -242,17 +280,20 @@ struct LookSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { AsyncButton { await save() } label: { Text("Save").bold() } }
             }
-            .onAppear {
-                guard theme == nil else { return }
-                guard let t = site.spec?["theme"]?.decode(SiteTheme.self) else {
-                    feedback.toast = "Couldn't read this site's look. Close the editor and open it again."
-                    return
-                }
-                theme = t
-                colors = ["primary": Color(hex: t.colors.primary), "accent": Color(hex: t.colors.accent), "background": Color(hex: t.colors.background), "text": Color(hex: t.colors.text)]
-            }
+            .onAppear(perform: seed)
+            .onChange(of: site) { _, _ in seed() }   // the parent may finish loading the spec after the sheet opened
             .sheetFeedback($feedback)
         }
+    }
+
+    private func seed() {
+        guard theme == nil else { return }
+        guard let t = site.spec?["theme"]?.decode(SiteTheme.self) else {
+            feedback.toast = "Couldn't read this site's look. Close the editor and open it again."
+            return
+        }
+        theme = t
+        colors = ["primary": Color(hex: t.colors.primary), "accent": Color(hex: t.colors.accent), "background": Color(hex: t.colors.background), "text": Color(hex: t.colors.text)]
     }
 
     private func save() async {
@@ -292,6 +333,8 @@ struct PhotosSheet: View {
     @State private var images: [ImageAsset] = []
     @State private var pending: [PickedPhoto] = []
     @State private var feedback = SheetFeedback()
+    /// The parent is refreshed once when the sheet goes away, however it was closed.
+    @State private var refreshedOnClose = false
 
     var body: some View {
         NavigationStack {
@@ -317,19 +360,27 @@ struct PhotosSheet: View {
             }
             .background(Theme.paper.ignoresSafeArea())
             .navigationTitle("Photos").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { finish() } } }
-            .onAppear { images = site.images ?? [] }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .onAppear { images = site.images ?? []; refreshedOnClose = false }   // re-armed: the camera cover also triggers onDisappear
+            .onDisappear {
+                // Swiping the sheet down skipped the Done button, so the editor never saw the new photos.
+                guard !refreshedOnClose else { return }
+                refreshedOnClose = true
+                Task { await refresh() }
+            }
             .sheetFeedback($feedback)
         }
     }
 
     private func remove(_ im: ImageAsset) async {
-        do { try await APIClient.shared.deleteImage(im.id); images.removeAll { $0.id == im.id } } catch { feedback.fail(error) }
+        do {
+            try await APIClient.shared.deleteImage(im.id)
+            images.removeAll { $0.id == im.id }
+            await refresh()   // the preview and the parent's image list drop the photo straight away
+        } catch { feedback.fail(error) }
     }
-    private func finish() {
-        Task {
-            if let r = try? await APIClient.shared.site(site.id) { onChanged(r.site) }
-            dismiss()
-        }
+    /// Reloads the site so the parent gets the current photo list.
+    private func refresh() async {
+        do { let r = try await APIClient.shared.site(site.id); onChanged(r.site) } catch { feedback.fail(error) }
     }
 }

@@ -26,6 +26,7 @@ struct SiteEditorView: View {
     @State private var attachments: [PickedPhoto] = []
     @State private var askConsent = false
     @State private var regenJob: Job?
+    @State private var messagesLoadFailed = false
     @FocusState private var composerFocused: Bool
 
     enum EditorSheet: String, Identifiable { case history, versions, details, look, photos, publish, sections; var id: String { rawValue } }
@@ -77,19 +78,22 @@ struct SiteEditorView: View {
         .sheet(item: $sheet) { s in
             switch s {
             case .history: HistorySheet(siteId: siteId)
-            case .versions: VersionsSheet(siteId: siteId) { updated in site = updated; reloadToken += 1 }
-            case .details: DetailsSheet(site: site!) { updated in site = updated; reloadToken += 1 }
-            case .look: LookSheet(site: site!) { updated in site = updated; reloadToken += 1 }
-            case .photos: PhotosSheet(site: site!) { updated in site = updated; reloadToken += 1 }
+            case .versions: VersionsSheet(siteId: siteId) { updated in site = updated; app.upsert(updated); reloadToken += 1 }
+            case .details: DetailsSheet(site: site!) { updated in site = updated; app.upsert(updated); reloadToken += 1 }
+            case .look: LookSheet(site: site!) { updated in site = updated; app.upsert(updated); reloadToken += 1 }
+            case .photos: PhotosSheet(site: site!) { updated in site = updated; app.upsert(updated); reloadToken += 1 }
             case .publish: PublishSheet(site: site!) { updated in site = updated; app.upsert(updated); reloadToken += 1 }
-            case .sections: SectionsSheet(site: site!) { updated in site = updated; reloadToken += 1 }
+            case .sections: SectionsSheet(site: site!) { updated in site = updated; app.upsert(updated); reloadToken += 1 }
             }
         }
         .alert("Use AI to change your site?", isPresented: $askConsent) {
             Button("Agree and continue") {
                 Task {
-                    if let u = try? await APIClient.shared.setAiConsent(true) { app.user = u }
-                    await send()
+                    // If recording the consent fails, say so; sending would only re-open this alert.
+                    do {
+                        app.user = try await APIClient.shared.setAiConsent(true)
+                        await send()
+                    } catch { app.handle(error) }
                 }
             }
             Button("Not now", role: .cancel) {}
@@ -101,7 +105,7 @@ struct SiteEditorView: View {
         } message: { Text("This removes the site, its photos and messages. It cannot be undone.") }
         .navigationDestination(isPresented: $showLeads) { LeadsView(siteId: siteId) }
         .navigationDestination(item: $regenJob) { job in
-            GeneratingView(jobId: job.id, onDone: { updated in regenJob = nil; site = updated; reloadToken += 1 }, onRetry: { regenJob = nil })
+            GeneratingView(jobId: job.id, onDone: { updated in regenJob = nil; site = updated; reloadToken += 1 }, onRetry: { regenJob = nil }, retryLabel: "Back")
         }
         .onReceive(NotificationCenter.default.publisher(for: .siteChanged)) { _ in Task { await load(); reloadToken += 1 } }
     }
@@ -198,7 +202,7 @@ struct SiteEditorView: View {
                         .font(Theme.body(12, weight: .semibold)).foregroundStyle(Theme.muted)
                 }
             }
-            if instruction.isEmpty && !composerFocused && attachments.isEmpty {
+            if instruction.isEmpty && !composerFocused && attachments.isEmpty && !applying {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(chipSuggestions) { s in
@@ -285,10 +289,11 @@ struct SiteEditorView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button { sheet = .sections } label: { Label("Sections & text", systemImage: "square.and.pencil") }
-                Button { sheet = .details } label: { Label("Business details", systemImage: "person.text.rectangle") }
-                Button { sheet = .look } label: { Label("Look & colors", systemImage: "paintpalette") }
-                Button { sheet = .photos } label: { Label("Photos", systemImage: "photo.on.rectangle") }
+                // These sheets edit the spec, which the site list does not include; wait for the full site.
+                Button { sheet = .sections } label: { Label("Sections & text", systemImage: "square.and.pencil") }.disabled(site?.spec == nil)
+                Button { sheet = .details } label: { Label("Business details", systemImage: "person.text.rectangle") }.disabled(site?.spec == nil)
+                Button { sheet = .look } label: { Label("Look & colors", systemImage: "paintpalette") }.disabled(site?.spec == nil)
+                Button { sheet = .photos } label: { Label("Photos", systemImage: "photo.on.rectangle") }.disabled(site?.spec == nil)
                 Divider()
                 Button { showLeads = true } label: { Label("Messages\((site?.unreadLeads ?? 0) > 0 ? " (\(site?.unreadLeads ?? 0))" : "")", systemImage: "tray") }
                 Button { sheet = .history } label: { Label("Change history", systemImage: "clock.arrow.circlepath") }
@@ -314,7 +319,13 @@ struct SiteEditorView: View {
     }
 
     private func loadMessages() async {
-        if let m = try? await APIClient.shared.messages(siteId) { messages = m }
+        do {
+            messages = try await APIClient.shared.messages(siteId)
+            messagesLoadFailed = false
+        } catch {
+            // Say it once; the conversation is fetched again after every change anyway.
+            if !messagesLoadFailed { messagesLoadFailed = true; app.toast = "Couldn't load the conversation. Check your connection." }
+        }
     }
 
     /// Why the paywall opens when the owner is out of changes, in plain words.
@@ -344,20 +355,38 @@ struct SiteEditorView: View {
         while attachments.contains(where: { $0.uploading }) && waited < 60 {
             try? await Task.sleep(for: .milliseconds(500)); waited += 1
         }
+        // A photo whose upload failed would be dropped silently; let the owner decide first.
+        let failedPhotos = attachments.filter { $0.failed }.count
+        if failedPhotos > 0 {
+            app.toast = "\(failedPhotos) photo\(failedPhotos == 1 ? "" : "s") didn't upload. Remove them or try again."
+            pendingMessage = nil
+            withAnimation { applying = false; if messages.isEmpty { chatOpen = false } }
+            return
+        }
         let imageIds = attachments.compactMap(\.uploadedId)
         var succeeded = false
         do {
             let job = try await APIClient.shared.edit(siteId, instruction: text, imageIds: imageIds)
             instruction = ""
-            attachments = []
             var current = job
+            var pollFailures = 0
             while !current.isFinished {
                 try await Task.sleep(for: .milliseconds(1200))
-                current = try await APIClient.shared.job(job.id).job
+                do {
+                    current = try await APIClient.shared.job(job.id).job
+                    pollFailures = 0
+                } catch {
+                    // A dropped poll must not abandon a change the server is still applying.
+                    pollFailures += 1
+                    if pollFailures >= 5 { throw error }
+                    try await Task.sleep(for: .milliseconds(1500))
+                    continue
+                }
                 if let t = current.statusText { applyText = t }
             }
             if current.status == "done" {
                 succeeded = true
+                attachments = []   // only once the photos are placed; a failed change keeps them for a retry
                 applyText = "Refreshing your site"
                 await loadMessages()
                 await load()

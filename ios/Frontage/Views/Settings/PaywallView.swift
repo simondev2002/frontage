@@ -30,6 +30,9 @@ struct PaywallView: View {
                     }
                     .buttonStyle(PrimaryButtonStyle(fill: Theme.green))
                     .disabled(store.purchasing || (selectedProduct == nil && !store.products.isEmpty))
+                    if selectedProduct == nil && !store.products.isEmpty {
+                        Text("This plan isn't available right now. Try again in a minute.").font(Theme.body(13)).foregroundStyle(Theme.muted)
+                    }
 
                     if app.config?.externalLinkUS == true && store.isUSStorefront {
                         AsyncButton { await webCheckout() } label: { Text("Or subscribe on our website") }
@@ -122,11 +125,20 @@ struct PaywallView: View {
             if store.products.isEmpty { error = store.lastError ?? "Plans are not available right now. Please try again shortly." }
             return
         }
-        guard let userId = app.user?.id else { return }
+        // The app may have started offline (no user yet); load the account before giving up silently.
+        if app.user == nil { await app.retryBootstrap() }
+        guard let userId = app.user?.id else {
+            self.error = "Can't reach Frontage. Check your connection and try again."
+            return
+        }
         do {
             if let e = try await store.purchase(product, userId: userId) {
                 app.entitlement = e
                 app.toast = "You're on \(e.plan.name). Thank you!"
+                dismiss()
+            } else if store.lastPurchasePending {
+                // Ask to Buy / SCA: nothing more to do here; the plan unlocks when the transaction arrives.
+                app.toast = "Waiting for approval. We'll unlock the plan as soon as it's approved."
                 dismiss()
             }
         } catch {

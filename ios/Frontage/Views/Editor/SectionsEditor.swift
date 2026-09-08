@@ -79,6 +79,7 @@ struct SectionsSheet: View {
                                 Text(SectionCatalog.title(s)).font(Theme.body(13)).foregroundStyle(Theme.muted).lineLimit(1)
                             }
                         }
+                        .buttonStyle(.borderless)   // the list is always in edit mode; default-styled rows ignore taps there
                         .deleteDisabled(s["type"]?.stringValue == "hero")
                     }
                     .onMove { from, to in sections.move(fromOffsets: from, toOffset: to); Task { await save("Reordered sections") } }
@@ -86,7 +87,7 @@ struct SectionsSheet: View {
                 } header: { Text("Tap to edit text and photos. Drag to reorder. Changes save instantly and never use an AI credit.") }
                 Section("Add a section") {
                     ForEach(SectionCatalog.addable, id: \.self) { t in
-                        Button(SectionCatalog.names[t] ?? t) { addSection(t) }
+                        Button(SectionCatalog.names[t] ?? t) { addSection(t) }.buttonStyle(.borderless)
                     }
                 }
             }
@@ -101,6 +102,10 @@ struct SectionsSheet: View {
                 }
             }
             .onAppear { sections = site.spec?["sections"]?.arrayValue?.compactMap(\.objectValue) ?? [] }
+            .onChange(of: site) { _, _ in
+                // The parent may finish loading the full site (with its spec) after the sheet opened.
+                if sections.isEmpty { sections = site.spec?["sections"]?.arrayValue?.compactMap(\.objectValue) ?? [] }
+            }
             .overlay { if saving { LoadingOverlay(text: "Saving") } }
             .sheetFeedback($feedback)
         }
@@ -123,7 +128,11 @@ struct SectionsSheet: View {
         }
         spec["sections"] = .array(sections.map { .object($0) })
         saving = true
-        do { onSaved(try await APIClient.shared.updateSpec(site.id, spec: spec, summary: summary)) } catch { feedback.fail(error) }
+        do { onSaved(try await APIClient.shared.updateSpec(site.id, spec: spec, summary: summary)) } catch {
+            // The server refused the change: show the last saved sections again, not the phantom edit.
+            sections = site.spec?["sections"]?.arrayValue?.compactMap(\.objectValue) ?? []
+            feedback.fail(error)
+        }
         saving = false
     }
 }
@@ -299,7 +308,9 @@ struct FieldRow: View {
                 }
             }
             Button {
-                let blank: [String: JSONValue] = arr.first?.objectValue.map(SectionCatalog.blank(like:)) ?? (SectionCatalog.template(type)[key]?.arrayValue?.first?.objectValue ?? [:])
+                // "stats" has no template item (the template starts it empty), so spell out its fields.
+                let fallback: [String: JSONValue] = key == "stats" ? ["value": .string(""), "label": .string("")] : [:]
+                let blank: [String: JSONValue] = arr.first?.objectValue.map(SectionCatalog.blank(like:)) ?? (SectionCatalog.template(type)[key]?.arrayValue?.first?.objectValue ?? fallback)
                 value = .array(arr + [.object(blank)])
             } label: { Label("Add", systemImage: "plus") }
         }

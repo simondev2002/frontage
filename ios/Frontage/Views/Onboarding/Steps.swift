@@ -44,7 +44,7 @@ struct AboutStep: View {
     @State private var newService = ""
 
     var body: some View {
-        StepScaffold(eyebrow: "Step 2 of 5", title: "Tell us about it", subtitle: "Write like you'd explain it to a new customer. The more specific, the better the site.", canContinue: draft.canContinueFromAbout, next: next) {
+        StepScaffold(eyebrow: "Step 2 of 5", title: "Tell us about it", subtitle: "Write like you'd explain it to a new customer. The more specific, the better the site.", canContinue: draft.canContinueFromAbout, hint: "Pick a business type and describe it in a sentence", next: next) {
             VStack(alignment: .leading, spacing: 8) {
                 FieldLabel(text: "What kind of business?")
                 FlowLayout {
@@ -104,7 +104,11 @@ struct LookStep: View {
                 ForEach(BriefDraft.moods, id: \.self) { m in
                     Chip(text: m, selected: draft.mood.contains(m)) {
                         if let i = draft.mood.firstIndex(of: m) { draft.mood.remove(at: i) }
-                        else if draft.mood.count < 3 { draft.mood.append(m) }
+                        else {
+                            // A fourth pick replaces the oldest one instead of being ignored.
+                            if draft.mood.count >= 3 { draft.mood.removeFirst() }
+                            draft.mood.append(m)
+                        }
                     }
                 }
             }
@@ -125,7 +129,10 @@ struct LookStep: View {
                             let on = draft.colors.contains(c.name)
                             Button {
                                 if let i = draft.colors.firstIndex(of: c.name) { draft.colors.remove(at: i) }
-                                else if draft.colors.count < 3 { draft.colors.append(c.name) }
+                                else {
+                                    if draft.colors.count >= 3 { draft.colors.removeFirst() }
+                                    draft.colors.append(c.name)
+                                }
                             } label: {
                                 VStack(spacing: 6) {
                                     Circle().fill(Color(hex: c.hex)).frame(width: 44, height: 44)

@@ -1,5 +1,6 @@
 import SwiftUI
 import StoreKit
+import UserNotifications
 
 struct SettingsView: View {
     @Environment(AppState.self) private var app
@@ -8,6 +9,8 @@ struct SettingsView: View {
     @State private var showManage = false
     @State private var confirmDelete = false
     @State private var busy = false
+    /// Settings is a sheet: the root's toast and paywall would render behind it.
+    @State private var feedback = SheetFeedback()
 
     var body: some View {
         NavigationStack {
@@ -29,9 +32,9 @@ struct SettingsView: View {
                         }
                         LabeledContent("AI changes this month", value: "\(e.usage.edits) of \(e.plan.editsPerMonth)")
                         if e.tier == "free" {
-                            Button("See plans") { app.showPaywall("starter") }
+                            Button("See plans") { feedback.paywall = PaywallRequest(requiredTier: "starter", reason: nil) }
                         } else {
-                            Button("Upgrade or change plan") { app.showPaywall(e.tier == "starter" ? "business" : "starter") }
+                            Button("Upgrade or change plan") { feedback.paywall = PaywallRequest(requiredTier: e.tier == "starter" ? "business" : "starter", reason: nil) }
                             if e.subscription?.provider == "apple" || e.subscription == nil {
                                 Button("Manage subscription") { showManage = true }
                             } else if e.subscription?.provider == "stripe" {
@@ -41,9 +44,9 @@ struct SettingsView: View {
                     }
                     AsyncButton {
                         do {
-                            if let e = try await store.restore() { app.entitlement = e; app.toast = "Purchases restored." }
-                            else { app.toast = "No purchases found for this Apple ID." }
-                        } catch { app.toast = "Could not restore right now." }
+                            if let e = try await store.restore(), e.isPaid { app.entitlement = e; feedback.toast ="Purchases restored." }
+                            else { feedback.toast ="No purchases found for this Apple ID." }
+                        } catch { feedback.toast ="Could not restore right now." }
                     } label: { Text("Restore purchases") }
                 }
 
@@ -55,13 +58,29 @@ struct SettingsView: View {
                     }
                     if app.user?.aiConsentAt != nil {
                         Button("Withdraw AI processing consent", role: .destructive) {
-                            Task { if let u = try? await APIClient.shared.setAiConsent(false) { app.user = u; app.toast = "Consent withdrawn. AI features will ask again." } }
+                            Task {
+                                do {
+                                    app.user = try await APIClient.shared.setAiConsent(false)
+                                    feedback.toast ="Consent withdrawn. AI features will ask again."
+                                } catch { feedback.fail(error) }
+                            }
                         }
                     }
                 }
 
                 Section("Notifications") {
-                    Button("Turn on alerts for new messages") { AppDelegate.requestPushPermission() }
+                    Button("Turn on alerts for new messages") {
+                        Task {
+                            // Once denied, iOS never shows the prompt again; the switch lives in Settings.
+                            let settings = await UNUserNotificationCenter.current().notificationSettings()
+                            if settings.authorizationStatus == .denied {
+                                feedback.toast ="Turn on notifications for Frontage in Settings."
+                                if let url = URL(string: UIApplication.openSettingsURLString) { await UIApplication.shared.open(url) }
+                            } else {
+                                AppDelegate.requestPushPermission()
+                            }
+                        }
+                    }
                     Button("Notification settings") {
                         if let url = URL(string: UIApplication.openNotificationSettingsURLString) { UIApplication.shared.open(url) }
                     }
@@ -99,12 +118,13 @@ struct SettingsView: View {
                 Button("Delete everything", role: .destructive) {
                     Task {
                         busy = true
-                        do { try await app.deleteAccount(); dismiss() } catch { app.handle(error) }
+                        do { try await app.deleteAccount(); dismiss() } catch { feedback.fail(error) }
                         busy = false
                     }
                 }
             } message: { Text("Your websites go offline immediately and your data is removed. This cannot be undone.") }
             .overlay { if busy { LoadingOverlay(text: "Deleting") } }
+            .sheetFeedback($feedback)
         }
     }
 

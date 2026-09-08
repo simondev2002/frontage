@@ -74,5 +74,5 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
 extension Notification.Name {
     static let openLeads = Notification.Name("frontage.openLeads")
-    static let siteChanged = Notification.Name("frontageweb.comChanged")
+    static let siteChanged = Notification.Name("frontage.siteChanged")
 }

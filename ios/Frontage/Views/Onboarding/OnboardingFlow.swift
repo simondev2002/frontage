@@ -13,6 +13,8 @@ struct OnboardingFlow: View {
     @State private var creating = false
     @State private var error: String?
     @State private var createdSiteId: String?
+    /// The paywall must be presented from inside this cover; the root's paywall cannot appear over it.
+    @State private var paywall: PaywallRequest?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -36,6 +38,7 @@ struct OnboardingFlow: View {
         }
         .tint(Theme.green)
         .interactiveDismissDisabled()
+        .sheet(item: $paywall) { req in PaywallView(request: req) }
     }
 
     private func create() async {
@@ -47,6 +50,12 @@ struct OnboardingFlow: View {
         while draft.pendingUploads && waited < 40 {
             try? await Task.sleep(for: .milliseconds(500)); waited += 1
         }
+        // A photo whose upload failed would be dropped silently; let the owner decide first.
+        let failedPhotos = draft.allPhotos.filter { $0.failed }.count
+        if failedPhotos > 0 {
+            error = "\(failedPhotos) photo\(failedPhotos == 1 ? "" : "s") didn't upload. Remove them or try again."
+            return
+        }
         do {
             // A retry after a failed generation re-runs the existing site instead
             // of creating a second one (which the free tier would reject).
@@ -57,10 +66,13 @@ struct OnboardingFlow: View {
                 let r = try await APIClient.shared.createSite(brief: draft.payload(), imageIds: draft.uploadedImageIds)
                 createdSiteId = r.site.id
                 app.upsert(r.site)
-                path.append(.generating(r.job.id))
+                if let job = r.job { path.append(.generating(job.id)) } else { self.error = "The website could not be started. Try again." }
             }
+        } catch let e as APIError where e.requiredTier != nil {
+            // Plan limit reached (a free account that already used its generation, for example).
+            paywall = PaywallRequest(requiredTier: e.requiredTier ?? "starter", reason: e.errorDescription)
         } catch {
-            if !app.handle(error) { self.error = (error as? LocalizedError)?.errorDescription }
+            self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 }
@@ -73,6 +85,8 @@ struct StepScaffold<Content: View>: View {
     var subtitle: String? = nil
     var cta: String = "Continue"
     var canContinue: Bool = true
+    /// Shown under the button while it is disabled, so the owner knows what is missing.
+    var hint: String? = nil
     var next: () -> Void
     @ViewBuilder var content: () -> Content
 
@@ -86,6 +100,9 @@ struct StepScaffold<Content: View>: View {
                     .disabled(!canContinue)
                     .opacity(canContinue ? 1 : 0.5)
                     .padding(.top, 8)
+                if let hint, !canContinue {
+                    Text(hint).font(Theme.body(13)).foregroundStyle(Theme.muted).frame(maxWidth: .infinity, alignment: .center)
+                }
             }
             .padding(24)
         }

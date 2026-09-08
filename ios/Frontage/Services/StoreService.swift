@@ -12,6 +12,8 @@ final class StoreService {
     var purchasing = false
     var lastError: String?
     var storefrontCountry: String?
+    /// True when the last purchase ended in Ask to Buy / SCA (nil result, but not a cancellation).
+    var lastPurchasePending = false
 
     private var updatesTask: Task<Void, Never>?
     private let api = APIClient.shared
@@ -46,12 +48,15 @@ final class StoreService {
     /// Returns the updated entitlement from the server, or nil if the user cancelled.
     func purchase(_ product: Product, userId: String) async throws -> Entitlement? {
         purchasing = true
+        lastPurchasePending = false
         defer { purchasing = false }
         var options: Set<Product.PurchaseOption> = []
         if let uuid = UUID(uuidString: userId) { options.insert(.appAccountToken(uuid)) }
         let result = try await product.purchase(options: options)
         switch result {
         case .success(let verification):
+            // sendTransactions throws when the server rejects the transaction, so it is
+            // only finished after a successful send.
             let entitlement = try await api.sendTransactions([verification.jwsRepresentation])
             if case .verified(let tx) = verification { await tx.finish() }
             return entitlement
@@ -59,6 +64,7 @@ final class StoreService {
             return nil
         case .pending:
             // Ask to Buy / SCA: the transaction arrives later via Transaction.updates.
+            lastPurchasePending = true
             return nil
         @unknown default:
             return nil
@@ -83,10 +89,22 @@ final class StoreService {
     }
 
     private func handle(_ result: VerificationResult<Transaction>) async {
-        if api.token != nil {
-            _ = try? await api.sendTransactions([result.jwsRepresentation])
+        guard case .verified(let tx) = result else { return }
+        // Finish only once the server has recorded the purchase. An unfinished transaction is
+        // delivered again on the next launch, so a network failure or a signed-out app cannot
+        // lose it; a transaction the server explicitly rejected is finished so it stops coming back.
+        guard api.token != nil else { return }
+        do {
+            _ = try await api.sendTransactions([result.jwsRepresentation])
+        } catch let e as APIError {
+            switch e {
+            case .network, .unauthorized: return
+            default: break
+            }
+        } catch {
+            return
         }
-        if case .verified(let tx) = result { await tx.finish() }
+        await tx.finish()
     }
 
     // MARK: Display helpers
