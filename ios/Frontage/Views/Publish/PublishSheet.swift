@@ -15,6 +15,7 @@ struct PublishSheet: View {
     @State private var verifying = false
     @State private var working = false
     @State private var error: String?
+    @State private var toast: String?
     /// The paywall must be presented from inside this sheet; the root's paywall cannot appear over it.
     @State private var paywall: PaywallRequest?
     @State private var publishAfterPlan = false
@@ -48,11 +49,18 @@ struct PublishSheet: View {
                     Task { await publish() }
                 }
             }) { req in PaywallView(request: req) }
+            .toast($toast)
         }
     }
 
     private func needPlan(_ tier: String, reason: String) {
         paywall = PaywallRequest(requiredTier: tier, reason: reason)
+    }
+
+    /// Errors must surface inside this sheet; the root's toast and paywall sit behind it.
+    private func fail(_ e: Error) {
+        if let api = e as? APIError, let tier = api.requiredTier { needPlan(tier, reason: api.errorDescription ?? "This needs a plan.") }
+        else { error = (e as? LocalizedError)?.errorDescription ?? e.localizedDescription }
     }
 
     // MARK: Status
@@ -174,10 +182,10 @@ struct PublishSheet: View {
         } catch let e as APIError where e.requiredTier != nil {
             publishAfterPlan = true
             needPlan(e.requiredTier ?? "starter", reason: e.errorDescription ?? "Publishing needs a plan.")
-        } catch { if !app.handle(error) { self.error = (error as? LocalizedError)?.errorDescription } }
+        } catch { fail(error) }
     }
     private func unpublish() async {
-        do { let s = try await APIClient.shared.unpublish(site.id); site = s; onChanged(s) } catch { app.handle(error) }
+        do { let s = try await APIClient.shared.unpublish(site.id); site = s; onChanged(s) } catch { fail(error) }
     }
     private func checkSlug() async {
         let s = slug.lowercased()
@@ -189,7 +197,7 @@ struct PublishSheet: View {
         checkingSlug = false
     }
     private func saveSlug() async {
-        do { let s = try await APIClient.shared.updateSite(site.id, slug: slug.lowercased()); site = s; onChanged(s); slugCheck = nil } catch { app.handle(error) }
+        do { let s = try await APIClient.shared.updateSite(site.id, slug: slug.lowercased()); site = s; onChanged(s); slugCheck = nil } catch { fail(error) }
     }
     private func addDomain() async {
         error = nil
@@ -199,17 +207,17 @@ struct PublishSheet: View {
             domain = DomainInfo(domain: s.customDomain, status: s.customDomainStatus, records: records, checkedAt: nil, provider: provider)
         } catch let e as APIError where e.requiredTier != nil {
             needPlan(e.requiredTier ?? "business", reason: e.errorDescription ?? "Custom domains are included in the Business plan.")
-        } catch { if !app.handle(error) { self.error = (error as? LocalizedError)?.errorDescription } }
+        } catch { fail(error) }
     }
     private func verify() async {
         do {
             let r = try await APIClient.shared.verifyDomain(site.id)
             site = r.site; onChanged(r.site)
             domain = DomainInfo(domain: r.site.customDomain, status: r.status, records: r.records, checkedAt: nil, provider: r.provider ?? domain?.provider)
-            if r.status != "active" { app.toast = "Not connected yet. We keep checking and will notify you when it's live." }
-        } catch { app.handle(error) }
+            if r.status != "active" { toast = "Not connected yet. We keep checking and will notify you when it's live." }
+        } catch { fail(error) }
     }
     private func removeDomain() async {
-        do { let s = try await APIClient.shared.removeDomain(site.id); site = s; onChanged(s); domain = nil } catch { app.handle(error) }
+        do { let s = try await APIClient.shared.removeDomain(site.id); site = s; onChanged(s); domain = nil } catch { fail(error) }
     }
 }

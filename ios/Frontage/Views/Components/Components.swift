@@ -195,6 +195,30 @@ extension View {
     func toast(_ message: Binding<String?>) -> some View { modifier(ToastModifier(message: message)) }
 }
 
+/// Feedback for views presented as sheets. The root view's toast and paywall sit
+/// behind a sheet, so a sheet that reported errors through `app.handle` showed
+/// nothing. Sheets keep their own copies: call `feedback.fail(error)` in catch
+/// blocks and attach `.sheetFeedback($feedback)` to the sheet's content.
+struct SheetFeedback: Equatable {
+    var toast: String?
+    var paywall: PaywallRequest?
+
+    mutating func fail(_ error: Error) {
+        if let api = error as? APIError, let tier = api.requiredTier {
+            paywall = PaywallRequest(requiredTier: tier, reason: api.errorDescription)
+        } else {
+            toast = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+}
+
+extension View {
+    func sheetFeedback(_ feedback: Binding<SheetFeedback>) -> some View {
+        self.toast(feedback.toast)
+            .sheet(item: feedback.paywall) { req in PaywallView(request: req) }
+    }
+}
+
 struct LoadingOverlay: View {
     var text: String
     var body: some View {

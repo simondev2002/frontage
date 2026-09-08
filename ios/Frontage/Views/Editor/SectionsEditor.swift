@@ -64,6 +64,7 @@ struct SectionsSheet: View {
     @State private var sections: [[String: JSONValue]] = []
     @State private var editing: EditTarget?
     @State private var saving = false
+    @State private var feedback = SheetFeedback()
 
     struct EditTarget: Identifiable { var index: Int; var section: [String: JSONValue]; var isNew: Bool; var id: String { "\(index)-\(isNew)" } }
 
@@ -101,6 +102,7 @@ struct SectionsSheet: View {
             }
             .onAppear { sections = site.spec?["sections"]?.arrayValue?.compactMap(\.objectValue) ?? [] }
             .overlay { if saving { LoadingOverlay(text: "Saving") } }
+            .sheetFeedback($feedback)
         }
     }
 
@@ -115,10 +117,13 @@ struct SectionsSheet: View {
     }
 
     private func save(_ summary: String) async {
-        guard var spec = site.spec else { return }
+        guard var spec = site.spec else {
+            feedback.toast = "Couldn't read this site. Close the editor and open it again."
+            return
+        }
         spec["sections"] = .array(sections.map { .object($0) })
         saving = true
-        do { onSaved(try await APIClient.shared.updateSpec(site.id, spec: spec, summary: summary)) } catch { app.handle(error) }
+        do { onSaved(try await APIClient.shared.updateSpec(site.id, spec: spec, summary: summary)) } catch { feedback.fail(error) }
         saving = false
     }
 }

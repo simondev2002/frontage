@@ -46,6 +46,7 @@ struct VersionsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var app
     @State private var versions: [SiteVersion] = []
+    @State private var feedback = SheetFeedback()
 
     var body: some View {
         NavigationStack {
@@ -70,7 +71,10 @@ struct VersionsSheet: View {
             .scrollContentBackground(.hidden).background(Theme.paper.ignoresSafeArea())
             .navigationTitle("Versions").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .task { versions = (try? await APIClient.shared.versions(siteId)) ?? [] }
+            .task {
+                do { versions = try await APIClient.shared.versions(siteId) } catch { feedback.fail(error) }
+            }
+            .sheetFeedback($feedback)
         }
     }
 
@@ -79,7 +83,7 @@ struct VersionsSheet: View {
             let site = try await APIClient.shared.restore(siteId, version: v.id)
             onRestored(site)
             dismiss()
-        } catch { app.handle(error) }
+        } catch { feedback.fail(error) }
     }
 }
 
@@ -98,6 +102,7 @@ struct DetailsSheet: View {
     @State private var tagline = ""
     @State private var name = ""
     @State private var hours: [SiteMeta.Hours] = []
+    @State private var feedback = SheetFeedback()
 
     // Explicit because private @State properties make the memberwise initializer private.
     init(site: Site, onSaved: @escaping (Site) -> Void) {
@@ -138,29 +143,40 @@ struct DetailsSheet: View {
                 ToolbarItem(placement: .confirmationAction) { AsyncButton { await save() } label: { Text("Save").bold() } }
             }
             .onAppear(perform: seed)
+            .sheetFeedback($feedback)
         }
     }
 
     private func seed() {
-        guard meta == nil, let m = site.spec?["meta"]?.decode(SiteMeta.self) else { return }
+        guard meta == nil else { return }
+        guard let m = site.spec?["meta"]?.decode(SiteMeta.self) else {
+            feedback.toast = "Couldn't read this site's details. Close the editor and open it again."
+            return
+        }
         meta = m
         name = m.businessName; tagline = m.tagline; phone = m.phone ?? ""; email = m.email ?? ""; address = m.address ?? ""; booking = m.bookingUrl ?? ""; hours = m.hours
     }
 
     private func save() async {
-        guard var m = meta, var spec = site.spec else { return }
+        guard var m = meta, var spec = site.spec else {
+            feedback.toast = "Couldn't read this site's details. Close the editor and open it again."
+            return
+        }
         m.businessName = name.trimmingCharacters(in: .whitespaces); m.tagline = tagline
         m.phone = phone.isEmpty ? nil : phone; m.email = email.isEmpty ? nil : email
         m.address = address.isEmpty ? nil : address; m.bookingUrl = booking.isEmpty ? nil : booking
         m.hours = hours.filter { !$0.days.isEmpty && !$0.hours.isEmpty }
         if m.mapQuery == nil || m.mapQuery?.isEmpty == true { m.mapQuery = m.address.map { "\(m.businessName), \($0)" } }
-        guard let json = JSONValue.from(m) else { return }
+        guard let json = JSONValue.from(m) else {
+            feedback.toast = "Couldn't prepare the details for saving."
+            return
+        }
         spec["meta"] = json
         do {
             var updated = try await APIClient.shared.updateSpec(site.id, spec: spec, summary: "Updated business details")
             if updated.name != m.businessName { updated = try await APIClient.shared.updateSite(site.id, name: m.businessName) }
             onSaved(updated); dismiss()
-        } catch { app.handle(error) }
+        } catch { feedback.fail(error) }
     }
 }
 
@@ -173,6 +189,7 @@ struct LookSheet: View {
     @Environment(AppState.self) private var app
     @State private var theme: SiteTheme?
     @State private var colors: [String: Color] = [:]
+    @State private var feedback = SheetFeedback()
 
     private let presetBlurb = ["editorial": "Magazine feel", "bold": "Loud & confident", "minimal": "Quiet & airy", "warm": "Soft & friendly", "luxury": "Refined", "playful": "Fun & rounded", "classic": "Trustworthy", "tech": "Sharp & modern"]
 
@@ -226,24 +243,35 @@ struct LookSheet: View {
                 ToolbarItem(placement: .confirmationAction) { AsyncButton { await save() } label: { Text("Save").bold() } }
             }
             .onAppear {
-                guard theme == nil, let t = site.spec?["theme"]?.decode(SiteTheme.self) else { return }
+                guard theme == nil else { return }
+                guard let t = site.spec?["theme"]?.decode(SiteTheme.self) else {
+                    feedback.toast = "Couldn't read this site's look. Close the editor and open it again."
+                    return
+                }
                 theme = t
                 colors = ["primary": Color(hex: t.colors.primary), "accent": Color(hex: t.colors.accent), "background": Color(hex: t.colors.background), "text": Color(hex: t.colors.text)]
             }
+            .sheetFeedback($feedback)
         }
     }
 
     private func save() async {
-        guard var t = theme, var spec = site.spec else { return }
+        guard var t = theme, var spec = site.spec else {
+            feedback.toast = "Couldn't read this site's look. Close the editor and open it again."
+            return
+        }
         t.colors.primary = colors["primary"]?.hexString ?? t.colors.primary
         t.colors.accent = colors["accent"]?.hexString ?? t.colors.accent
         t.colors.background = colors["background"]?.hexString ?? t.colors.background
         t.colors.text = colors["text"]?.hexString ?? t.colors.text
         // Keep surface close to background so cards stay coherent.
         t.colors.surface = t.mode == "dark" ? blend(t.colors.background, toward: "#ffffff", 0.06) : "#ffffff"
-        guard let json = JSONValue.from(t) else { return }
+        guard let json = JSONValue.from(t) else {
+            feedback.toast = "Couldn't prepare the look for saving."
+            return
+        }
         spec["theme"] = json
-        do { onSaved(try await APIClient.shared.updateSpec(site.id, spec: spec, summary: "Changed the look")); dismiss() } catch { app.handle(error) }
+        do { onSaved(try await APIClient.shared.updateSpec(site.id, spec: spec, summary: "Changed the look")); dismiss() } catch { feedback.fail(error) }
     }
 
     private func blend(_ a: String, toward b: String, _ t: Double) -> String {
@@ -263,6 +291,7 @@ struct PhotosSheet: View {
     @Environment(AppState.self) private var app
     @State private var images: [ImageAsset] = []
     @State private var pending: [PickedPhoto] = []
+    @State private var feedback = SheetFeedback()
 
     var body: some View {
         NavigationStack {
@@ -290,11 +319,12 @@ struct PhotosSheet: View {
             .navigationTitle("Photos").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { finish() } } }
             .onAppear { images = site.images ?? [] }
+            .sheetFeedback($feedback)
         }
     }
 
     private func remove(_ im: ImageAsset) async {
-        do { try await APIClient.shared.deleteImage(im.id); images.removeAll { $0.id == im.id } } catch { app.handle(error) }
+        do { try await APIClient.shared.deleteImage(im.id); images.removeAll { $0.id == im.id } } catch { feedback.fail(error) }
     }
     private func finish() {
         Task {

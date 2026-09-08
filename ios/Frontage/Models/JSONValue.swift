@@ -75,6 +75,27 @@ struct SiteMeta: Codable, Equatable {
     var bookingUrl: String?
     var socials: [Social]
     var hours: [Hours]
+
+    enum CodingKeys: String, CodingKey { case businessName, tagline, category, language, seoTitle, seoDescription, phone, email, address, mapQuery, bookingUrl, socials, hours }
+
+    /// Writes empty optionals as JSON null. The synthesized encoder omits them, and
+    /// the server schema wants every key present, so saving details used to fail.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(businessName, forKey: .businessName)
+        try c.encode(tagline, forKey: .tagline)
+        try c.encode(category, forKey: .category)
+        try c.encode(language, forKey: .language)
+        try c.encode(seoTitle, forKey: .seoTitle)
+        try c.encode(seoDescription, forKey: .seoDescription)
+        try c.encode(phone, forKey: .phone)
+        try c.encode(email, forKey: .email)
+        try c.encode(address, forKey: .address)
+        try c.encode(mapQuery, forKey: .mapQuery)
+        try c.encode(bookingUrl, forKey: .bookingUrl)
+        try c.encode(socials, forKey: .socials)
+        try c.encode(hours, forKey: .hours)
+    }
 }
 
 struct SiteTheme: Codable, Equatable {

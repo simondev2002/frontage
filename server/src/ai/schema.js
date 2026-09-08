@@ -38,12 +38,12 @@ export const MetaSchema = z.object({
   language: z.string().describe("BCP-47 code of the site's language, e.g. en, sv, el, de"),
   seoTitle: z.string().describe("Browser/Google title, max 60 characters, includes business name and city if known"),
   seoDescription: z.string().describe("Google snippet, 120-155 characters"),
-  phone: z.string().nullable(),
-  email: z.string().nullable(),
-  address: z.string().nullable().describe("Single-line street address, or null"),
-  mapQuery: z.string().nullable().describe("Search text for an embedded map, usually name + address"),
-  bookingUrl: z.string().nullable().describe("External booking/ordering link if the owner provided one"),
-  socials: z.array(z.object({ platform: platformField, url: z.string() })),
+  phone: z.string().nullable().default(null),
+  email: z.string().nullable().default(null),
+  address: z.string().nullable().default(null).describe("Single-line street address, or null"),
+  mapQuery: z.string().nullable().default(null).describe("Search text for an embedded map, usually name + address"),
+  bookingUrl: z.string().nullable().default(null).describe("External booking/ordering link if the owner provided one"),
+  socials: z.array(z.object({ platform: platformField, url: z.string() })).default([]),
   hours: z.array(z.object({ days: z.string(), hours: z.string() })).describe("Opening hours rows, e.g. {days:'Mon-Fri', hours:'9:00-18:00'}. Empty if unknown."),
 });
 
