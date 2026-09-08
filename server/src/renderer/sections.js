@@ -32,6 +32,7 @@ const telHref = (phone) => "tel:" + String(phone).replace(/[^\d+]/g, "");
 export const sections = {
   hero(s, ctx) {
     const v = s.variant || "split";
+    if (v === "offset" || v === "poster") return heroVariant(s, ctx, v);
     // Without a photo, the renderer draws brand artwork so the hero still looks designed.
     const media = s.imageId && ctx.image(s.imageId)
       ? `<div class="media">${img(ctx, s.imageId, { eager: true, alt: ctx.meta.businessName })}</div>`
@@ -48,6 +49,7 @@ export const sections = {
 
   about(s, ctx) {
     const v = s.variant || "text";
+    if (v === "story") return aboutStory(s, ctx);
     const stats = s.stats?.length
       ? `<div class="stats">${s.stats.map((x) => `<div class="stat"><b>${esc(x.value)}</b><span>${esc(x.label)}</span></div>`).join("")}</div>`
       : "";
@@ -60,6 +62,7 @@ export const sections = {
 
   services(s, ctx) {
     const v = s.variant || "cards";
+    if (v === "numbered") return servicesNumbered(s, ctx);
     const head = `${heading(s.heading)}${intro(s.intro)}`;
     if (v === "list") {
       const rows = s.items.map((it) => `<div class="row"><h3>${it.icon ? icon(it.icon) : ""}${esc(it.title)}</h3><p>${esc(it.description)}</p>${it.price ? `<div class="price">${esc(it.price)}</div>` : "<div></div>"}</div>`).join("");
@@ -75,6 +78,8 @@ export const sections = {
     const v = s.variant || "grid";
     const ids = (s.imageIds || []).filter((id) => ctx.image(id));
     if (!ids.length) return "";
+    if (v === "editorial") return galleryEditorial(s, ctx, ids);
+    if (v === "filmstrip") return galleryFilmstrip(s, ctx, ids);
     const items = ids.map((id) => {
       const im = ctx.image(id);
       const tall = v === "masonry" && im.height > im.width ? ' class="tall"' : "";
@@ -87,6 +92,7 @@ export const sections = {
   testimonials(s) {
     const v = s.variant || "cards";
     if (!s.items.length) return "";
+    if (v === "featured") return testimonialsFeatured(s);
     const stars = `<div class="stars">${icon("star").repeat(5)}</div>`;
     if (v === "single") {
       const t = s.items[0];
@@ -105,6 +111,7 @@ export const sections = {
   },
 
   menu(s) {
+    if (s.variant === "ruled") return menuRuled(s);
     const cats = s.categories.map((c) => `<div class="cat"><h3>${esc(c.name)}</h3>${c.items.map((it) => `<div class="item"><b>${esc(it.name)}</b><span class="p">${esc(it.price)}</span>${it.description ? `<p>${esc(it.description)}</p>` : ""}</div>`).join("")}</div>`).join("");
     return `<section class="menu" id="${esc(s.id)}"><div class="wrap">${heading(s.heading)}${intro(s.intro)}<div class="cats">${cats}</div></div></section>`;
   },
@@ -115,7 +122,8 @@ export const sections = {
     return `<section class="pricing" id="${esc(s.id)}"><div class="wrap">${heading(s.heading)}${intro(s.intro)}<div class="grid ${cols}">${plans}</div></div></section>`;
   },
 
-  faq(s) {
+  faq(s, ctx) {
+    if (s.variant === "numbered" || s.variant === "open") return faqVariant(s, ctx, s.variant);
     const items = s.items.map((q) => `<details><summary>${esc(q.question)}</summary><p>${esc(q.answer)}</p></details>`).join("");
     return `<section class="faq" id="${esc(s.id)}"><div class="wrap">${heading(s.heading)}${items}</div></section>`;
   },
@@ -133,6 +141,7 @@ export const sections = {
   },
 
   contact(s, ctx) {
+    if (s.variant === "table" || s.variant === "address") return contactVariant(s, ctx, s.variant);
     const m = ctx.meta;
     const li = [];
     if (m.phone) li.push(`<li>${icon("phone")}<a href="${esc(telHref(m.phone))}">${esc(m.phone)}</a></li>`);
@@ -151,6 +160,7 @@ export const sections = {
   },
 
   cta(s, ctx) {
+    if (s.variant === "framed" || s.variant === "overlap") return ctaVariant(s, ctx, s.variant);
     if (s.variant === "card") {
       return `<section id="${esc(s.id)}"><div class="wrap"><div class="cta-card"><div>${heading(s.heading)}${s.text ? `<p class="intro" style="margin-bottom:0">${esc(s.text)}</p>` : ""}<div class="actions">${btn(s.button)}</div></div>${s.imageId ? img(ctx, s.imageId) : ""}</div></div></section>`;
     }
@@ -166,6 +176,123 @@ export const sections = {
     return `<section class="custom" id="${esc(s.id)}">${css ? `<style>${css}</style>` : ""}<div class="wrap">${heading(s.heading)}${sanitizeHtml(s.html || "")}</div></section>`;
   },
 };
+
+// ---- Variants ported from the design lab (tools/design-lab), September 2026 ----
+// Each one is a candidate design curated from the lab's contact sheets, rewritten
+// against the spec fields. Numbers, rules and icons are the only decoration, so
+// nothing here depends on the site's language.
+const ARROW = `<svg class="arr" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1 7h11M8 3l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const kicker = (s) => (s ? `<div class="kicker">${esc(s)}</div>` : "");
+const quiet = (s) => (s ? `<div class="eyebrow quiet">${esc(s)}</div>` : "");
+const btnArrow = (cta, cls = "primary") => (cta ? `<a class="btn ${cls}" href="${esc(safeHref(cta.href))}">${esc(cta.label)}${ARROW}</a>` : "");
+const textLink = (cta) => (cta ? `<a class="textlink" href="${esc(safeHref(cta.href))}">${esc(cta.label)}${ARROW}</a>` : "");
+const contactLinks = (m) => [m.phone && `<a href="${esc(telHref(m.phone))}">${esc(m.phone)}</a>`, m.email && `<a href="${esc(safeHref("mailto:" + m.email))}">${esc(m.email)}</a>`].filter(Boolean);
+
+function heroVariant(s, ctx, v) {
+  const m = ctx.meta;
+  const photo = s.imageId && ctx.image(s.imageId) ? img(ctx, s.imageId, { eager: true, alt: m.businessName }) : artSvg(ctx);
+  if (v === "poster") {
+    const caption = `<div class="caption">${s.eyebrow ? `<span>${esc(s.eyebrow)}</span>` : ""}<span class="brand-mark">${esc(m.businessName)}</span></div>`;
+    const cap = m.address ? `<figcaption>${esc(m.address)}</figcaption>` : "";
+    return `<section class="hero poster" id="${esc(s.id)}"><div class="wrap">${caption}<h1>${esc(s.headline)}</h1><div class="row"><p class="lead">${esc(s.subheadline)}</p><div class="actions">${btnArrow(s.primaryCta)}${btn(s.secondaryCta, "ghost")}</div></div><figure class="figure">${photo}${cap}</figure></div></section>`;
+  }
+  return `<section class="hero offset" id="${esc(s.id)}"><div class="wrap"><div class="copy">${kicker(s.eyebrow)}<h1>${esc(s.headline)}</h1><p class="lead">${esc(s.subheadline)}</p><div class="actions">${btn(s.primaryCta)}${textLink(s.secondaryCta)}</div></div><div class="media"><div class="plate">${photo}</div><div class="mark" aria-hidden="true">01</div></div></div></section>`;
+}
+
+function aboutStory(s, ctx) {
+  const im = s.imageId && ctx.image(s.imageId);
+  const stats = s.stats?.length ? `<div class="strip">${s.stats.map((x) => `<div><b>${esc(x.value)}</b><span>${esc(x.label)}</span></div>`).join("")}</div>` : "";
+  const text = `<div class="text">${quiet(s.eyebrow)}${heading(s.heading)}<div class="prose">${paras(s.paragraphs)}</div>${stats}</div>`;
+  if (!im) return `<section class="about story" id="${esc(s.id)}"><div class="wrap one">${text}</div></section>`;
+  const cap = im.caption ? `<figcaption>${esc(im.caption)}</figcaption>` : "";
+  return `<section class="about story" id="${esc(s.id)}"><div class="wrap two"><figure class="media">${img(ctx, s.imageId)}${cap}</figure>${text}</div></section>`;
+}
+
+function servicesNumbered(s, ctx) {
+  const pinned = s.items.findIndex((it) => it.imageId && ctx.image(it.imageId));
+  let thumbs = 0;
+  const rows = s.items.map((it, i) => {
+    const thumb = i !== pinned && it.imageId && ctx.image(it.imageId) ? img(ctx, it.imageId, { alt: it.title }) : "";
+    if (thumb) thumbs++;
+    return `<li>${thumb}<h3>${esc(it.title)}</h3><p>${esc(it.description)}</p>${it.price ? `<div class="price">${esc(it.price)}</div>` : ""}</li>`;
+  }).join("");
+  const m = ctx.meta;
+  const aside = pinned >= 0
+    ? `<aside class="aside"><figure>${img(ctx, s.items[pinned].imageId, { alt: s.items[pinned].title })}<figcaption><span>${esc(m.tagline || "")}</span>${m.phone ? `<a href="${esc(telHref(m.phone))}">${esc(m.phone)}</a>` : ""}</figcaption></figure></aside>`
+    : "";
+  return `<section class="services numbered" id="${esc(s.id)}"><div class="wrap${aside ? " two" : ""}"><div class="main">${heading(s.heading)}${intro(s.intro)}<ol class="nlist${thumbs ? "" : " plain"}">${rows}</ol></div>${aside}</div></section>`;
+}
+
+function testimonialsFeatured(s) {
+  const fig = (t, cls) => `<figure${cls ? ` class="${cls}"` : ""}><blockquote><p>${esc(t.quote)}</p></blockquote><figcaption><b>${esc(t.author)}</b>${t.role ? `<span>${esc(t.role)}</span>` : ""}</figcaption></figure>`;
+  const [first, ...rest] = s.items;
+  return `<section class="testimonials featured" id="${esc(s.id)}"><div class="wrap">${heading(s.heading)}${fig(first, "feat")}${rest.length ? `<div class="rest">${rest.map((t) => fig(t)).join("")}</div>` : ""}</div></section>`;
+}
+
+function menuRuled(s) {
+  const cats = s.categories.map((c) => `<div class="rcat"><div class="rhead"><h3>${esc(c.name)}</h3></div><ul class="ritems">${c.items.map((it) => `<li><span class="name">${esc(it.name)}</span><span class="leader" aria-hidden="true"></span><span class="p">${esc(it.price)}</span>${it.description ? `<span class="desc">${esc(it.description)}</span>` : ""}</li>`).join("")}</ul></div>`).join("");
+  return `<section class="menu ruled" id="${esc(s.id)}"><div class="wrap"><header class="rmenu-head">${heading(s.heading)}${s.intro ? `<p class="intro">${esc(s.intro)}</p>` : ""}</header><div class="rcats">${cats}</div></div></section>`;
+}
+
+function galleryEditorial(s, ctx, ids) {
+  const items = ids.map((id) => `<figure>${img(ctx, id)}<figcaption>${esc(ctx.image(id).caption || "")}</figcaption></figure>`).join("");
+  const head = s.heading ? `<header class="ehead">${heading(s.heading)}${s.intro ? `<p class="intro">${esc(s.intro)}</p>` : ""}<span class="rule" aria-hidden="true"></span></header>` : "";
+  return `<section class="gallery editorial" id="${esc(s.id)}"><div class="wrap"><div class="egrid${head ? "" : " nohead"}">${head}${items}</div></div></section>`;
+}
+
+function galleryFilmstrip(s, ctx, ids) {
+  const items = ids.map((id) => `<li><figure>${img(ctx, id)}</figure></li>`).join("");
+  const head = s.heading || s.intro ? `<div class="wrap fhead"><div>${heading(s.heading)}${s.intro ? `<p class="intro">${esc(s.intro)}</p>` : ""}</div><span class="hint" aria-hidden="true">${ARROW}</span></div>` : "";
+  return `<section class="gallery filmstrip" id="${esc(s.id)}">${head}<ul class="film" style="--n:${Math.min(ids.length, 6)}">${items}</ul></section>`;
+}
+
+function faqVariant(s, ctx, v) {
+  const links = contactLinks(ctx.meta);
+  const note = links.length ? `<p class="note">${links.join('<span aria-hidden="true"> · </span>')}</p>` : "";
+  const head = `<header class="fhead">${heading(s.heading)}${note}</header>`;
+  if (v === "open") {
+    const items = s.items.map((q) => `<div><dt>${esc(q.question)}</dt><dd>${esc(q.answer)}</dd></div>`).join("");
+    return `<section class="faq open" id="${esc(s.id)}"><div class="wrap fwrap">${head}<dl class="olist">${items}</dl></div></section>`;
+  }
+  const plus = `<svg class="plus" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v14M1 8h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="square"/></svg>`;
+  const items = s.items.map((q) => `<details><summary><span class="n" aria-hidden="true"></span><span class="q">${esc(q.question)}</span>${plus}</summary><div class="a"><p>${esc(q.answer)}</p></div></details>`).join("");
+  return `<section class="faq numbered" id="${esc(s.id)}"><div class="wrap fwrap">${head}<div class="flist">${items}</div></div></section>`;
+}
+
+function contactVariant(s, ctx, v) {
+  const m = ctx.meta;
+  const hours = m.hours?.length ? m.hours : [];
+  const map = s.showMap && (m.mapQuery || m.address)
+    ? `<div class="map"><iframe title="Map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=${encodeURIComponent(m.mapQuery || m.address)}&output=embed"></iframe></div>`
+    : "";
+  const bookHref = m.bookingUrl ? safeHref(m.bookingUrl) : "#";
+  const book = m.bookingUrl && bookHref !== "#" ? `<div class="actions"><a class="btn primary" href="${esc(bookHref)}" target="_blank" rel="noopener">${esc(ctx.formLabels?.book || "Book now")}</a></div>` : "";
+  const form = s.showForm ? leadForm(ctx) : "";
+  const head = `<header class="chead">${heading(s.heading)}${intro(s.intro)}</header>`;
+  if (v === "address") {
+    const links = [m.phone && `<li>${icon("phone")}<a href="${esc(telHref(m.phone))}">${esc(m.phone)}</a></li>`, m.email && `<li>${icon("mail")}<a href="${esc(safeHref("mailto:" + m.email))}">${esc(m.email)}</a></li>`].filter(Boolean).join("");
+    const big = m.address || links ? `<div class="big">${m.address ? `<p class="street">${esc(m.address)}</p>` : ""}${links ? `<ul class="links">${links}</ul>` : ""}</div>` : "";
+    const hrow = hours.length ? `<dl class="hrow">${hours.map((h) => `<div><dt>${esc(h.days)}</dt><dd>${esc(h.hours)}</dd></div>`).join("")}</dl>` : "";
+    return `<section class="contact address" id="${esc(s.id)}"><div class="wrap">${head}${big}${hrow}${book}${form}${map}</div></section>`;
+  }
+  const table = hours.length ? `<table class="hours-t">${hours.map((h) => `<tr><th scope="row">${esc(h.days)}</th><td>${esc(h.hours)}</td></tr>`).join("")}</table>` : "";
+  const details = [
+    m.address && `<div>${icon("map-pin")}<span>${esc(m.address)}</span></div>`,
+    m.phone && `<div>${icon("phone")}<a href="${esc(telHref(m.phone))}">${esc(m.phone)}</a></div>`,
+    m.email && `<div>${icon("mail")}<a href="${esc(safeHref("mailto:" + m.email))}">${esc(m.email)}</a></div>`,
+  ].filter(Boolean).join("");
+  const info = `<div class="info">${table}${details ? `<div class="details">${details}</div>` : ""}${book}${map}</div>`;
+  return `<section class="contact table" id="${esc(s.id)}"><div class="wrap">${head}<div class="cgrid${form ? " two" : ""}">${info}${form}</div></div></section>`;
+}
+
+function ctaVariant(s, ctx, v) {
+  const im = s.imageId && ctx.image(s.imageId);
+  const copy = `${heading(s.heading)}${s.text ? `<p>${esc(s.text)}</p>` : ""}<div class="actions">${btnArrow(s.button, "invert")}</div>`;
+  if (v === "overlap" && im) {
+    return `<section class="cta overlap" id="${esc(s.id)}"><div class="wrap"><figure class="photo">${img(ctx, s.imageId)}</figure><div class="panel"><span class="rule" aria-hidden="true"></span>${copy}</div></div></section>`;
+  }
+  return `<section class="cta framed" id="${esc(s.id)}"><div class="wrap"><div class="band"><div class="frame${im ? " two" : ""}"><div class="copy">${copy}</div>${im ? `<figure class="media">${img(ctx, s.imageId)}</figure>` : ""}</div></div></div></section>`;
+}
 
 // Deterministic brand artwork (soft color fields + one geometric accent) from the
 // theme palette and business name, used when a hero has no photo.

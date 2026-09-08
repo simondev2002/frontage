@@ -80,7 +80,7 @@ export const SectionSchemas = {
   hero: z.object({
     ...base,
     type: z.literal("hero"),
-    variant: z.enum(["split", "centered", "fullbleed", "editorial", "minimal"]),
+    variant: z.enum(["offset", "poster", "split", "centered", "fullbleed", "editorial", "minimal"]),
     eyebrow: z.string().nullable().describe("Tiny label above the headline, e.g. 'Est. 1998 · Larnaca'"),
     headline: z.string().describe("The main promise, 3-9 words, specific to the business"),
     subheadline: z.string().describe("1-2 sentences of supporting copy"),
@@ -91,7 +91,7 @@ export const SectionSchemas = {
   about: z.object({
     ...base,
     type: z.literal("about"),
-    variant: z.enum(["text", "imageLeft", "imageRight", "stats"]),
+    variant: z.enum(["story", "text", "imageLeft", "imageRight", "stats"]),
     eyebrow: z.string().nullable(),
     heading: z.string(),
     paragraphs: z.array(z.string()).describe("1-3 short paragraphs in the owner's voice"),
@@ -101,7 +101,7 @@ export const SectionSchemas = {
   services: z.object({
     ...base,
     type: z.literal("services"),
-    variant: z.enum(["cards", "list", "grid"]),
+    variant: z.enum(["numbered", "cards", "list", "grid"]),
     heading: z.string(),
     intro: z.string().nullable(),
     items: z.array(z.object({
@@ -115,7 +115,7 @@ export const SectionSchemas = {
   gallery: z.object({
     ...base,
     type: z.literal("gallery"),
-    variant: z.enum(["grid", "masonry", "strip"]),
+    variant: z.enum(["editorial", "filmstrip", "grid", "masonry", "strip"]),
     heading: z.string().nullable(),
     intro: z.string().nullable(),
     imageIds: z.array(z.string()),
@@ -123,7 +123,7 @@ export const SectionSchemas = {
   testimonials: z.object({
     ...base,
     type: z.literal("testimonials"),
-    variant: z.enum(["cards", "single", "wall"]),
+    variant: z.enum(["featured", "cards", "single", "wall"]),
     heading: z.string().nullable(),
     items: z.array(z.object({ quote: z.string(), author: z.string(), role: z.string().nullable() })),
   }),
@@ -138,6 +138,7 @@ export const SectionSchemas = {
   menu: z.object({
     ...base,
     type: z.literal("menu"),
+    variant: z.enum(["ruled", "classic"]).default("ruled"),
     heading: z.string(),
     intro: z.string().nullable(),
     categories: z.array(z.object({
@@ -163,6 +164,7 @@ export const SectionSchemas = {
   faq: z.object({
     ...base,
     type: z.literal("faq"),
+    variant: z.enum(["open", "numbered", "accordion"]).default("open"),
     heading: z.string(),
     items: z.array(z.object({ question: z.string(), answer: z.string() })),
   }),
@@ -182,7 +184,7 @@ export const SectionSchemas = {
   contact: z.object({
     ...base,
     type: z.literal("contact"),
-    variant: z.enum(["split", "stacked"]),
+    variant: z.enum(["table", "address", "split", "stacked"]),
     heading: z.string(),
     intro: z.string().nullable(),
     showForm: z.boolean(),
@@ -191,7 +193,7 @@ export const SectionSchemas = {
   cta: z.object({
     ...base,
     type: z.literal("cta"),
-    variant: z.enum(["banner", "card"]),
+    variant: z.enum(["framed", "overlap", "banner", "card"]),
     heading: z.string(),
     text: z.string().nullable(),
     button: Cta,

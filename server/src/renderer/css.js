@@ -1,5 +1,6 @@
 // Base stylesheet + design presets. Everything is driven by CSS custom
 // properties derived from the theme so a single stylesheet serves all sites.
+import { VARIANTS_CSS } from "./css-variants.js";
 
 export function fontsHref(theme) {
   const fams = [...new Set([theme.headingFont, theme.bodyFont])]
@@ -42,7 +43,7 @@ export function buildCss(theme) {
   --font-body:'${theme.bodyFont}',${fallback(theme.bodyFont)};
   --wrap:1180px;--pad:clamp(20px,5vw,56px);--section:clamp(64px,9vw,120px);
 }`;
-  return vars + BASE + (PRESETS[theme.preset] || "");
+  return vars + BASE + VARIANTS_CSS + (PRESETS[theme.preset] || "");
 }
 
 const BASE = `

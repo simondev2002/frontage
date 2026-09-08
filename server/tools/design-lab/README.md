@@ -36,3 +36,12 @@ Each ported variant touches five places, in this order:
    `node scripts/render-demo.js <preset>`.
 4. `src/ai/prompts.js` DESIGN_GUIDE "Section variants": one line saying when to use it.
 5. `ios/Frontage/Views/Editor/SectionsEditor.swift`: `variants` list and `variantLabels`.
+
+## Ported so far
+
+8 Sep 2026, from the Claude baseline: hero `offset` and `poster`, about `story`, services
+`numbered`, testimonials `featured`, menu `ruled`, gallery `editorial` and `filmstrip`, faq
+`open` and `numbered`, contact `table` and `address`, cta `framed` and `overlap`. Styles live
+in `src/renderer/css-variants.js`, markup in the variant helpers at the bottom of
+`src/renderer/sections.js`. Each was checked at 390 and 1280 px in warm light and luxury
+dark, and without photos.

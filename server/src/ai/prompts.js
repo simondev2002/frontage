@@ -23,15 +23,18 @@ Colors: pick a real palette, not defaults. background and surface must be close 
 
 Icons (icon fields) must be from: ${ICONS.join(", ")}.
 
-Section variants:
-- hero: split (photo beside copy, the safe default when a strong photo exists), centered (text first, wide photo below), fullbleed (photo behind text; only with a strong landscape photo), editorial (huge headline, then photo), minimal (no photo or a small one). Without any photo the renderer draws brand artwork in place of the image, so split and editorial still look designed.
-- about: text, imageLeft, imageRight, stats (stats only for real numbers from the brief).
-- services: cards (with photos or icons), list (long menus of services with prices), grid (many small items).
-- gallery: grid, masonry (mixed portrait/landscape), strip (horizontal scroll, great for food and interiors).
-- testimonials: cards, single (one great quote), wall.
+Section variants (the first one listed is the default; it is the most designed):
+- hero: offset (copy beside the photo, which sits on an offset colour plate with a small numeral; use with a portrait or square photo), poster (a caption row with the business name, an oversized headline, then the photo cropped wide like a magazine opener; use with a landscape photo), split (plain photo beside copy), centered (text first, wide photo below), fullbleed (photo behind text; only with a strong landscape photo), editorial (huge headline, then photo), minimal (no photo or a small one). Without any photo the renderer draws brand artwork in place of the image, so offset, poster, split and editorial still look designed.
+- about: story (photo on the left, text starting lower with a drop cap, real stats in a ruled strip beneath), text, imageLeft, imageRight, stats (stats only for real numbers from the brief).
+- services: numbered (a numbered list with thin rules, thumbnails and prices, the first photo pinned beside it; best for 3-8 items), cards (with photos or icons), list (long lists with prices), grid (many small items).
+- gallery: editorial (heading beside a tall lead photo, numbered captions; best for 4-8 photos), filmstrip (a numbered strip that swipes on phones and staggers on desktop), grid, masonry (mixed portrait/landscape), strip (horizontal scroll).
+- testimonials: featured (one large quote with an oversized mark, the rest in two columns; best for 2-4 quotes), cards, single (one great quote), wall.
 - features: grid, checklist, columns.
-- contact: split (details + form side by side), stacked.
-- cta: banner (full color band), card.
+- menu: ruled (numbered categories between heavy rules, dotted leaders, prices in the heading font), classic (two columns with dashed rules).
+- faq: open (every answer visible, numbered, two columns on desktop; best up to 6 questions), numbered (a numbered accordion; for longer lists), accordion.
+- contact: table (opening hours as a typographic table with the details beside a form with underlined fields; use when hours are known), address (the address set large in the heading font, hours in a row, the form beneath; for places customers visit), split (details + form side by side), stacked.
+- cta: framed (a band in the primary colour with a thin inset frame and an optional photo), overlap (a wide photo strip with a colour panel overlapping it; needs a photo), banner (full colour band), card.
+Prefer the defaults for editorial, minimal, warm, luxury and classic presets. The plainer variants (split, cards, grid, banner) suit bold, playful and tech presets, or thin content.
 Use "menu" for restaurants, cafés and bars when dishes are known; "pricing" for packages; "faq" for services people have questions about; "hours" when opening hours matter and are not already in the contact section; "team" only when people are named.
 
 ## What a great site contains, by business type
