@@ -23,3 +23,5 @@ Thumbs.db
 .vscode/
 .idea/
 server/.env.production
+server/tools/design-lab/.env
+server/tools/design-lab/out/
