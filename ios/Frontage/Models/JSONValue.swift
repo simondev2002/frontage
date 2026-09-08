@@ -88,11 +88,7 @@ struct SiteTheme: Codable, Equatable {
     var headingFont: String
     var bodyFont: String
     var radius: String
-    /// Page-background texture; older specs have none.
-    var texture: String?
 
-    static let textures = ["none", "paper", "grain", "linen", "dots", "grid", "stripes"]
-    static let textureLabels: [String: String] = ["none": "None", "paper": "Paper", "grain": "Film grain", "linen": "Linen", "dots": "Dots", "grid": "Grid", "stripes": "Stripes"]
     static let presets = ["editorial", "bold", "minimal", "warm", "luxury", "playful", "classic", "tech"]
     static let fonts = ["Inter", "Manrope", "DM Sans", "Space Grotesk", "Plus Jakarta Sans", "Outfit", "Sora", "Work Sans", "Nunito", "Poppins", "Josefin Sans", "Oswald", "Bebas Neue", "Archivo Black", "Syne", "Bricolage Grotesque", "Playfair Display", "Fraunces", "Cormorant Garamond", "Lora", "Merriweather", "Libre Baskerville", "DM Serif Display", "Instrument Serif"]
 }
