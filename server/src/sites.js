@@ -330,7 +330,7 @@ export function dnsInstructions(domain) {
     { type: "CNAME", host: "www", value: config.cnameTarget, note: `Points www.${domain} at ${config.brand}` },
   ];
   if (config.serverIPv4) records.push({ type: "A", host: "@", value: config.serverIPv4, note: `Points ${domain} (without www) at ${config.brand}` });
-  else records.push({ type: "ALIAS or ANAME", host: "@", value: config.cnameTarget, note: "If your DNS provider supports ALIAS/ANAME records for the root domain" });
+  else records.push({ type: "ALIAS, ANAME or flattened CNAME", host: "@", value: config.cnameTarget, note: `Points ${domain} (without www) at ${config.brand}. If your provider has no such record type, set up a redirect from ${domain} to www.${domain} instead; the www address is the one that matters.` });
   return records;
 }
 export async function checkDomainDns(domain) {

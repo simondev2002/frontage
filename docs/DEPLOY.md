@@ -73,7 +73,19 @@ A single container handles thousands of sites (rendering is string concatenation
 
 - Hostinger KVM 2 in Düsseldorf (EU), Ubuntu 26.04, IP `179.198.206.40`, SSH as root with the `frontage_vps` key.
 - Code at `/opt/frontage`, containers from `/opt/frontage/server` (`app` + `caddy`), state in `/opt/frontage/server/data`, secrets in `.env` and `keys/` there (never in git). Nightly SQLite backups in `/var/backups/frontage` (14 days).
-- Cloudflare zone `frontageweb.com`: `@`, `www`, `app` proxied; `*` and `sites` DNS-only (Caddy issues the wildcard through the Cloudflare DNS challenge, customer domains get on-demand certificates).
+- Cloudflare zone `frontageweb.com`: `@`, `www`, `app` and `*` proxied (the wildcard was switched to proxied on 8 Sep 2026 so hosted sites no longer reveal the origin IP); `sites` stays DNS-only until Cloudflare for SaaS is on, because an external CNAME to a proxied name fails with Cloudflare error 1014 without it. Caddy issues the wildcard through the Cloudflare DNS challenge; customer domains get on-demand certificates.
+
+### Hiding the origin completely (Cloudflare for SaaS)
+
+Goal: no DNS record anywhere resolves to `179.198.206.40`, and the server only accepts web traffic from Cloudflare. Order matters; each step is safe on its own.
+
+1. Account Holder, in the Cloudflare dashboard:
+   - My Profile → API Tokens → create a token with `Zone: DNS: Edit`, `Zone: SSL and Certificates: Edit`, `Zone: Zone Settings: Edit`, `Zone: Zone: Read`, scoped to `frontageweb.com`. Put it in `server/.env.production` as `CF_API_TOKEN` (Caddy uses the same variable for the DNS challenge).
+   - SSL/TLS → Custom Hostnames → enable Cloudflare for SaaS (the first 100 customer hostnames are free, then $0.10 per hostname per month; Cloudflare may ask for a payment method on file).
+2. Then, with the new token (API, no dashboard needed): create `fallback.frontageweb.com` as a proxied A record to the server, set it as the custom-hostname fallback origin, switch `sites.frontageweb.com` to proxied, set the zone SSL mode to Full (strict).
+3. Server `.env`: `CF_SAAS=true`, `SERVER_IPV4=` (empty, so the app stops handing out the IP and tells owners to use ALIAS/flattened CNAME or a root-to-www redirect), restart `app`. Re-register any pending custom domain (the domain watcher does it on its next tick).
+4. Firewall: `bash /opt/frontage/deploy/cloudflare-firewall.sh` (web ports only from Cloudflare ranges; SSH unchanged), and add it to `/etc/cron.monthly` so the ranges stay current.
+5. Verify: `curl -sI https://<any-site>.frontageweb.com` shows `server: cloudflare`; `curl -k --resolve app.frontageweb.com:443:179.198.206.40 https://app.frontageweb.com/api/health` from outside Cloudflare times out.
 - Update after a push to `main`:
 
 ```bash
