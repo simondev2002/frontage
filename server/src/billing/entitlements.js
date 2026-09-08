@@ -35,7 +35,11 @@ export function entitlement(userId) {
   const usage = usageFor(userId);
   const lifetimeGenerations = get("SELECT COUNT(*) AS n FROM ai_calls WHERE user_id = ? AND kind = 'generate' AND ok = 1", userId).n;
   const sites = siteCount(userId);
-  const generationsUsed = tier === "free" ? lifetimeGenerations : usage.generations;
+  // Queued and running jobs count now, not when they finish, so parallel requests cannot
+  // overshoot the quota (usage rows are only written at completion).
+  const inflight = (type) => get("SELECT COUNT(*) AS n FROM jobs WHERE user_id = ? AND type = ? AND status IN ('queued', 'running')", userId, type).n;
+  const generationsUsed = (tier === "free" ? lifetimeGenerations : usage.generations) + inflight("generate");
+  const editsUsed = usage.edits + inflight("edit");
   return {
     tier,
     plan: {
@@ -48,9 +52,9 @@ export function entitlement(userId) {
       customDomain: plan.customDomain,
       badge: plan.badge,
     },
-    usage: { month: usage.month, generations: generationsUsed, edits: usage.edits, sites },
+    usage: { month: usage.month, generations: generationsUsed, edits: editsUsed, sites },
     remaining: {
-      edits: Math.max(0, plan.editsPerMonth - usage.edits),
+      edits: Math.max(0, plan.editsPerMonth - editsUsed),
       generations: Math.max(0, plan.generations - generationsUsed),
       sites: Math.max(0, plan.sites - sites),
     },

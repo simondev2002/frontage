@@ -47,6 +47,7 @@ function sendOne(host, deviceToken, payload) {
     req.on("data", (c) => (body += c));
     req.on("end", () => resolve({ status, body }));
     req.on("error", (e) => resolve({ status: -1, body: e.message }));
+    req.on("close", () => resolve({ status: status || -1, body })); // a timeout closes without "end"
     req.setTimeout(8000, () => req.close());
     req.end(JSON.stringify(payload));
   });

@@ -84,7 +84,14 @@ export async function handleHostRequest(ctx) {
   }
   if (p === "/robots.txt") return send({ status: 200, headers: { "Content-Type": "text/plain", ...baseSecurityHeaders() }, body: `User-agent: *\nAllow: /\nSitemap: ${urls.live}/sitemap.xml\n` });
   if (p === "/sitemap.xml") return send({ status: 200, headers: { "Content-Type": "application/xml", ...baseSecurityHeaders() }, body: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${esc(urls.live)}/</loc><lastmod>${new Date(site.published_at).toISOString()}</lastmod></url></urlset>` });
-  if (p === "/privacy") return send(secureHtml(renderLegal(site), 200, { "Cache-Control": "public, max-age=600" }));
+  if (p === "/privacy") {
+    try {
+      return send(secureHtml(renderLegal(site), 200, { "Cache-Control": "public, max-age=600" }));
+    } catch (e) {
+      console.error("[hosting] privacy page failed", site.id, e.message);
+      return send(secureHtml(placeholderPage("Privacy notice", "This page is temporarily unavailable. Please try again shortly."), 500, noindex));
+    }
+  }
   if (p !== "/" && p !== "/index.html") return send(secureHtml(placeholderPage("Page not found", "This page does not exist. Head back to the homepage.", `${urls.live}/`), 404));
   // Canonical host: www.<custom> and the subdomain redirect to the custom domain when active and allowed.
   const host = hostOnly(ctx.req.headers.host);
@@ -140,6 +147,13 @@ export function registerHostingRoutes(router) {
     return { __raw: true, status: ok ? 200 : 404, headers: { "Content-Type": "text/plain" }, body: ok ? "ok" : "unknown" };
   });
 
+  // At most 20 report emails an hour; later reports are still stored for the admin.
+  const reportMail = { hour: 0, n: 0 };
+  const reportMailAllowed = () => {
+    const h = Math.floor(Date.now() / 36e5);
+    if (reportMail.hour !== h) { reportMail.hour = h; reportMail.n = 0; }
+    return reportMail.n++ < 20;
+  };
   router.get("/report", async (ctx) => {
     const siteId = String(ctx.url.searchParams.get("site") || "").replace(/[^\w-]/g, "").slice(0, 64);
     return secureHtml(reportPage(siteId));
@@ -151,7 +165,7 @@ export function registerHostingRoutes(router) {
     const reason = String(b.reason || "").slice(0, 60);
     const details = String(b.details || "").slice(0, 2000);
     run("INSERT INTO reports (site_id, host, reason, details, ip, created_at) VALUES (?,?,?,?,?,?)", siteId, String(ctx.req.headers.host || "").slice(0, 253), reason, details, clientIp(ctx.req), now());
-    sendEmail({ to: config.supportEmail, subject: `[${config.brand}] Abuse report for site ${siteId}`, text: `Reason: ${reason}\n\n${details}\n\nSite: ${config.publicBaseUrl}/p/${siteId}` }).catch(() => {});
+    if (reportMailAllowed()) sendEmail({ to: config.supportEmail, subject: `[${config.brand}] Abuse report for site ${siteId}`, text: `Reason: ${reason}\n\n${details}\n\nSite: ${config.publicBaseUrl}/p/${siteId}` }).catch(() => {});
     return { ok: true };
   });
 }

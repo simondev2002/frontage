@@ -26,6 +26,7 @@ function loadDotEnv(file) {
       // Unquoted values may carry an inline comment: KEY=value   # note
       const hash = val.search(/\s#/);
       if (hash !== -1) val = val.slice(0, hash).trim();
+      if (val.startsWith("#")) val = ""; // KEY=   # note  means "unset"
     }
     if (process.env[key] === undefined) process.env[key] = val;
   }
@@ -169,7 +170,7 @@ export const config = {
   },
 
   limits: {
-    maxUploadBytes: int("MAX_UPLOAD_BYTES", 8 * 1024 * 1024),
+    maxUploadBytes: int("MAX_UPLOAD_BYTES", 4.5 * 1024 * 1024), // under the AI provider's 5 MB per-image limit
     maxImagesPerSite: int("MAX_IMAGES_PER_SITE", 40),
     maxJsonBytes: 512 * 1024,
   },

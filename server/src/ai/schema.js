@@ -38,12 +38,12 @@ export const MetaSchema = z.object({
   language: z.string().describe("BCP-47 code of the site's language, e.g. en, sv, el, de"),
   seoTitle: z.string().describe("Browser/Google title, max 60 characters, includes business name and city if known"),
   seoDescription: z.string().describe("Google snippet, 120-155 characters"),
-  phone: z.string().nullable().default(null),
-  email: z.string().nullable().default(null),
-  address: z.string().nullable().default(null).describe("Single-line street address, or null"),
-  mapQuery: z.string().nullable().default(null).describe("Search text for an embedded map, usually name + address"),
-  bookingUrl: z.string().nullable().default(null).describe("External booking/ordering link if the owner provided one"),
-  socials: z.array(z.object({ platform: platformField, url: z.string() })).default([]),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  address: z.string().nullable().describe("Single-line street address, or null"),
+  mapQuery: z.string().nullable().describe("Search text for an embedded map, usually name + address"),
+  bookingUrl: z.string().nullable().describe("External booking/ordering link if the owner provided one"),
+  socials: z.array(z.object({ platform: platformField, url: z.string() })),
   hours: z.array(z.object({ days: z.string(), hours: z.string() })).describe("Opening hours rows, e.g. {days:'Mon-Fri', hours:'9:00-18:00'}. Empty if unknown."),
 });
 
@@ -138,7 +138,7 @@ export const SectionSchemas = {
   menu: z.object({
     ...base,
     type: z.literal("menu"),
-    variant: z.enum(["ruled", "classic"]).default("ruled"),
+    variant: z.enum(["ruled", "classic"]),
     heading: z.string(),
     intro: z.string().nullable(),
     categories: z.array(z.object({
@@ -164,7 +164,7 @@ export const SectionSchemas = {
   faq: z.object({
     ...base,
     type: z.literal("faq"),
-    variant: z.enum(["open", "numbered", "accordion"]).default("open"),
+    variant: z.enum(["open", "numbered", "accordion"]),
     heading: z.string(),
     items: z.array(z.object({ question: z.string(), answer: z.string() })),
   }),
@@ -246,8 +246,34 @@ export const ModerationSchema = z.object({
   reason: z.string().describe("Short reason when not allowed, else empty string"),
 });
 
+// Stored specs and specs sent by the app may omit keys that the AI must always send:
+// optional meta fields (the app's encoder drops empty ones) and the menu/faq layout
+// (older sites predate it). They are filled here, with the layouts those sites had, so
+// nothing changes under an owner's feet. The AI boundary keeps the strict schema, so a
+// model that omits a field goes through the repair round instead of silently nulling it.
+function normalizeSpec(spec) {
+  if (!spec || typeof spec !== "object") return spec;
+  const s = { ...spec };
+  if (s.meta && typeof s.meta === "object") {
+    const m = { ...s.meta };
+    for (const k of ["phone", "email", "address", "mapQuery", "bookingUrl"]) if (m[k] === undefined) m[k] = null;
+    if (m.socials === undefined) m.socials = [];
+    if (m.hours === undefined) m.hours = [];
+    s.meta = m;
+  }
+  if (Array.isArray(s.sections)) {
+    s.sections = s.sections.map((sec) => {
+      if (!sec || typeof sec !== "object" || sec.variant !== undefined) return sec;
+      if (sec.type === "menu") return { ...sec, variant: "classic" };
+      if (sec.type === "faq") return { ...sec, variant: "accordion" };
+      return sec;
+    });
+  }
+  return s;
+}
+
 export function validateSpec(spec) {
-  const r = SiteSpecSchema.safeParse(spec);
+  const r = SiteSpecSchema.safeParse(normalizeSpec(spec));
   if (!r.success) {
     const issues = r.error.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     const err = new Error("Invalid site spec: " + issues);

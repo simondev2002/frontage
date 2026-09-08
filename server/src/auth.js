@@ -72,8 +72,13 @@ const b64u = (s) => Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64
 export async function verifyAppleIdentityToken(token, { nonce } = {}) {
   const parts = String(token || "").split(".");
   if (parts.length !== 3) throw badRequest("invalid_token", "Malformed identity token");
-  const header = JSON.parse(b64u(parts[0]).toString("utf8"));
-  const payload = JSON.parse(b64u(parts[1]).toString("utf8"));
+  let header, payload;
+  try {
+    header = JSON.parse(b64u(parts[0]).toString("utf8"));
+    payload = JSON.parse(b64u(parts[1]).toString("utf8"));
+  } catch {
+    throw badRequest("invalid_token", "Malformed identity token");
+  }
   let keys = await appleJwks();
   let jwk = keys.find((k) => k.kid === header.kid);
   if (!jwk) {

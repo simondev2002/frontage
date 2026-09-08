@@ -51,6 +51,15 @@ Declared content types are ignored; the first bytes must be JPEG, PNG or WebP. F
 - Secrets come from `.env` (git-ignored) or files under `keys/`; nothing is logged except request lines in development.
 - Every AI call is recorded with tokens and cost; the admin endpoint is token-protected.
 
+## Hardening added 8 Sep 2026 (after the pre-launch review)
+
+- A malformed `Host` header is answered with 400 instead of throwing outside the request's try and stopping the process; `unhandledRejection` is logged and `uncaughtException` logged before the container restarts.
+- Theme colours and fonts are checked at the sink in `buildCss` (hex literal or fallback, font from the allowed list or Inter), so a crafted spec cannot close the `<style>` tag and inject markup into a hosted page or its privacy notice.
+- `CF-Connecting-IP` is only trusted when the peer that reached Caddy is in Cloudflare's published ranges (`src/util/cfip.js`, refreshed at boot); otherwise rate limits key on the real peer.
+- Queued and running jobs count towards generation and edit quotas immediately, and a site cannot be deleted while its job runs, so parallel or delete-and-retry requests cannot overshoot a plan.
+- Optional meta fields and legacy menu/FAQ layouts are normalised only for stored and app-sent specs; the AI boundary keeps the strict schema, so a model that omits a field goes through the repair round instead of silently nulling it.
+- Restoring a version needs a plan like any other manual edit; `PUT /spec`, publish and domain routes are rate-limited; oversized bodies are drained to at most twice the limit; the admin token is header-only; abuse-report emails cap at 20 an hour; uploads cap at 4.5 MB (the AI provider's per-image limit is 5 MB).
+
 ## Known limits (worth knowing, not blockers)
 
 - Rate limiting is in-memory per process; behind multiple instances use a shared store.

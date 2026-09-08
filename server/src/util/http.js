@@ -1,6 +1,7 @@
 // Minimal HTTP toolkit: router, body parsing, JSON responses, errors, rate limiting.
 import crypto from "node:crypto";
 import { config } from "../config.js";
+import { isCloudflareIp } from "./cfip.js";
 
 export class HttpError extends Error {
   constructor(status, code, message, extra) {
@@ -46,7 +47,11 @@ export class Router {
       const m = r.re.exec(pathname);
       if (!m) continue;
       const params = {};
-      r.keys.forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
+      try {
+        r.keys.forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
+      } catch {
+        return null; // malformed percent-encoding: not a route we know
+      }
       return { params, handlers: r.handlers };
     }
     return null;
@@ -111,7 +116,7 @@ export function html(body, status = 200, headers = {}) {
 export function readRawBody(req, limit) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    const hardCap = Math.max(limit * 4, 64 * 1024 * 1024);
+    const hardCap = Math.min(64 * 1024 * 1024, Math.max(limit * 2, 2 * 1024 * 1024));
     let size = 0;
     let over = false;
     const tooLarge = () => new HttpError(413, "too_large", "That is too large to upload.");
@@ -146,17 +151,20 @@ export async function readJsonBody(req, limit = config.limits.maxJsonBytes) {
 }
 
 export function clientIp(req) {
-  if (config.trustProxy) {
-    // Behind Cloudflare the real client address is CF-Connecting-IP; X-Forwarded-For
-    // is the fallback for a plain reverse proxy (Caddy/Nginx).
-    const cf = req.headers["cf-connecting-ip"];
-    if (cf) return String(cf).trim();
-    const xff = req.headers["x-forwarded-for"];
-    if (xff) return String(xff).split(",")[0].trim();
-    const real = req.headers["x-real-ip"];
-    if (real) return String(real);
-  }
-  return req.socket.remoteAddress || "";
+  const sock = req.socket.remoteAddress || "";
+  if (!config.trustProxy) return sock;
+  // Caddy replaces X-Forwarded-For with the address that connected to it, so the first
+  // entry is our peer: a Cloudflare edge when the host is proxied, else the client itself.
+  // CF-Connecting-IP is only believed when that peer really is Cloudflare; otherwise a
+  // client could send any value and get a fresh rate-limit bucket per request.
+  const xff = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  const peer = xff || sock;
+  const cf = req.headers["cf-connecting-ip"];
+  if (cf && isCloudflareIp(peer)) return String(cf).trim();
+  if (xff) return xff;
+  const real = req.headers["x-real-ip"];
+  if (real) return String(real).trim();
+  return sock;
 }
 
 // ---- Rate limiting (token bucket per key, in memory) ------------------------

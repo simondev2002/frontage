@@ -66,16 +66,20 @@ export function updateJob(id, patch) {
 }
 
 async function pump() {
-  while (running < CONCURRENCY) {
-    const next = get("SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
-    if (!next) return;
-    const r = run("UPDATE jobs SET status = 'running', status_text = 'Starting', updated_at = ? WHERE id = ? AND status = 'queued'", now(), next.id);
-    if (!r.changes) continue;
-    running++;
-    runJob(next).finally(() => {
-      running--;
-      setImmediate(pump);
-    });
+  try {
+    while (running < CONCURRENCY) {
+      const next = get("SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
+      if (!next) return;
+      const r = run("UPDATE jobs SET status = 'running', status_text = 'Starting', updated_at = ? WHERE id = ? AND status = 'queued'", now(), next.id);
+      if (!r.changes) continue;
+      running++;
+      runJob(next).finally(() => {
+        running--;
+        setImmediate(pump);
+      });
+    }
+  } catch (e) {
+    console.error("[jobs] pump:", e.message);
   }
 }
 
@@ -94,7 +98,11 @@ async function runJob(j) {
     for (const fn of doneListeners) { try { fn(j); } catch (e) { console.error("[job done hook]", e.message); } }
   } catch (e) {
     console.error(`[job ${j.type}] failed:`, e.message);
-    updateJob(j.id, { status: "failed", error: e.userMessage || e.message || "Failed", result: e.code ? { code: e.code } : null });
+    try {
+      updateJob(j.id, { status: "failed", error: e.userMessage || e.message || "Failed", result: e.code ? { code: e.code } : null });
+    } catch (e2) {
+      console.error("[job] could not record the failure:", e2.message);
+    }
   }
 }
 

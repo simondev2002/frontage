@@ -20,7 +20,7 @@ import { imagesForSite, imageMap, stripPrivate } from "./uploads.js";
 import { unreadLeadCount } from "./leads.js";
 import { ensureCustomHostnames, removeCustomHostnames, customHostnameStatus, cloudflareSaasEnabled } from "./cloudflare.js";
 
-const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/; // 3-40 characters, as the error text says
 // Replaced per request by hosting.js with a fresh CSP nonce.
 export const NONCE_PLACEHOLDER = "%%NONCE%%";
 const HOST_RE = /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
@@ -84,9 +84,17 @@ onJobDone((job) => {
   if (["generate", "edit"].includes(job.type) && job.site_id) refreshSuggestions(job.site_id);
 });
 
+// The app gets the normalized spec (defaults filled, stale keys dropped) so what it
+// edits matches what the renderer draws.
+function normalizedSpec(json) {
+  const raw = parseJson(json);
+  if (!raw) return raw;
+  try { return validateSpec(raw); } catch { return raw; }
+}
+
 export function publicSite(site, { withSpec = true } = {}) {
   const images = withSpec ? imagesForSite(site.id) : null;
-  const spec = withSpec ? parseJson(site.spec_json) : undefined;
+  const spec = withSpec ? normalizedSpec(site.spec_json) : undefined;
   return {
     id: site.id,
     name: site.name,
@@ -302,7 +310,13 @@ export async function detectProvider(domain) {
 // the owner gets a push and an email.
 export function startDomainWatcher() {
   const tick = async () => {
-    const pending = all("SELECT * FROM sites WHERE custom_domain IS NOT NULL AND custom_domain_status = 'pending' AND updated_at > ?", now() - 7 * 864e5);
+    let pending = [];
+    try {
+      pending = all("SELECT * FROM sites WHERE custom_domain IS NOT NULL AND custom_domain_status = 'pending' AND updated_at > ?", now() - 7 * 864e5);
+    } catch (e) {
+      console.warn("[domains] watcher query", e.message);
+      return;
+    }
     for (const site of pending) {
       try {
         const r = await checkDomainDns(site.custom_domain);
@@ -413,6 +427,10 @@ export function registerSiteRoutes(router) {
 
   router.delete("/api/sites/:id", requireAuth, async (ctx) => {
     const site = ownedSite(ctx);
+    // Not while a job runs: the job row would go with the site and the quota check would
+    // count one generation too few (a way to get extra free generations).
+    if (get("SELECT 1 AS x FROM jobs WHERE site_id = ? AND status IN ('queued', 'running')", site.id)) throw badRequest("busy", "Wait for the current change to finish, then delete.");
+    if (site.custom_domain) await removeCustomHostnames(site.custom_domain).catch((e) => console.warn("[cloudflare] remove on delete", e.message));
     run("DELETE FROM sites WHERE id = ?", site.id);
     invalidateLive(site.id);
     // The fresh entitlement lets the app unlock "New website" straight away.
@@ -481,6 +499,7 @@ export function registerSiteRoutes(router) {
   });
   router.post("/api/sites/:id/versions/:vid/restore", requireAuth, async (ctx) => {
     const site = ownedSite(ctx);
+    assertCan(ctx.user.id, "manual_edit");
     const v = get("SELECT * FROM site_versions WHERE id = ? AND site_id = ?", ctx.params.vid, site.id);
     if (!v) throw notFound("Version not found");
     saveVersion(site.id, parseJson(v.spec_json), "restore", `Restored version ${v.id}`);
@@ -488,6 +507,7 @@ export function registerSiteRoutes(router) {
   });
   router.put("/api/sites/:id/spec", requireAuth, async (ctx) => {
     const site = ownedSite(ctx);
+    rateLimit(`spec:${ctx.user.id}`, { capacity: 30, refillPerSec: 0.5 });
     // Body first so oversized payloads get a clean 413 instead of a reset mid-upload.
     const body = await readJsonBody(ctx.req, 1024 * 1024);
     assertCan(ctx.user.id, "manual_edit");
@@ -500,6 +520,7 @@ export function registerSiteRoutes(router) {
   // ---- Publishing
   router.post("/api/sites/:id/publish", requireAuth, async (ctx) => {
     const site = ownedSite(ctx);
+    rateLimit(`publish:${ctx.user.id}`, { capacity: 6, refillPerSec: 0.05 });
     if (!site.spec_json) throw badRequest("no_design", "Create the website first.");
     if (site.suspended_reason) throw forbidden("suspended", `This website was taken offline by ${config.brand}: ${site.suspended_reason}. Contact ${config.supportEmail}.`);
     assertCan(ctx.user.id, "publish");

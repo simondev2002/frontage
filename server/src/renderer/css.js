@@ -1,6 +1,14 @@
 // Base stylesheet + design presets. Everything is driven by CSS custom
 // properties derived from the theme so a single stylesheet serves all sites.
 import { VARIANTS_CSS } from "./css-variants.js";
+import { FONTS } from "../ai/schema.js";
+
+// The theme is interpolated into a <style> block, so values are checked at the sink:
+// a colour is a hex literal or falls back, a font is one of ours or Inter. Without this
+// a crafted spec could close the style tag and inject markup into a hosted page.
+const HEX = /^#[0-9a-fA-F]{3,8}$/;
+const safeHex = (v, fallbackHex) => (HEX.test(String(v || "")) ? v : fallbackHex);
+const safeFont = (f) => (FONTS.includes(f) ? f : "Inter");
 
 export function fontsHref(theme) {
   const fams = [...new Set([theme.headingFont, theme.bodyFont])]
@@ -28,7 +36,17 @@ const SERIFS = ["Playfair Display", "Fraunces", "Cormorant Garamond", "Lora", "M
 const fallback = (f) => (SERIFS.includes(f) ? "Georgia, 'Times New Roman', serif" : "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif");
 
 export function buildCss(theme) {
-  const c = theme.colors;
+  const raw = theme.colors || {};
+  const c = {
+    primary: safeHex(raw.primary, "#1f4d3a"),
+    secondary: safeHex(raw.secondary, "#e7efe9"),
+    accent: safeHex(raw.accent, "#c4783a"),
+    background: safeHex(raw.background, "#fbfaf7"),
+    surface: safeHex(raw.surface, "#ffffff"),
+    text: safeHex(raw.text, "#1a1a1a"),
+  };
+  const headingFont = safeFont(theme.headingFont);
+  const bodyFont = safeFont(theme.bodyFont);
   const radius = { sharp: "0px", soft: "14px", round: "28px" }[theme.radius] || "14px";
   const btnRadius = { sharp: "0px", soft: "10px", round: "999px" }[theme.radius] || "10px";
   const vars = `
@@ -39,8 +57,8 @@ export function buildCss(theme) {
   --muted:color-mix(in srgb,var(--text) 62%,transparent);
   --line:color-mix(in srgb,var(--text) 12%,transparent);
   --radius:${radius};--btn-radius:${btnRadius};
-  --font-heading:'${theme.headingFont}',${fallback(theme.headingFont)};
-  --font-body:'${theme.bodyFont}',${fallback(theme.bodyFont)};
+  --font-heading:'${headingFont}',${fallback(headingFont)};
+  --font-body:'${bodyFont}',${fallback(bodyFont)};
   --wrap:1180px;--pad:clamp(20px,5vw,56px);--section:clamp(64px,9vw,120px);
 }`;
   return vars + BASE + VARIANTS_CSS + (PRESETS[theme.preset] || "");

@@ -16,6 +16,7 @@ import { entitlement, tierFor } from "./billing/entitlements.js";
 import { registerHostingRoutes, handleHostRequest } from "./hosting.js";
 import { registerDevice } from "./push.js";
 import { resumeJobs } from "./jobs.js";
+import { refreshCloudflareRanges } from "./util/cfip.js";
 import { aiConfigured } from "./ai/client.js";
 
 const router = new Router();
@@ -69,7 +70,7 @@ registerHostingRoutes(router);
 
 // ---- Admin (simple, token-protected) -------------------------------------------------
 function requireAdmin(ctx) {
-  const tok = ctx.req.headers["x-admin-token"] || ctx.url.searchParams.get("token");
+  const tok = ctx.req.headers["x-admin-token"]; // header only: query strings end up in access logs
   if (!config.adminToken || !safeEqual(tok, config.adminToken)) throw new HttpError(401, "unauthorized", "Admin token required");
 }
 
@@ -167,7 +168,14 @@ function serveStatic(ctx) {
 // ---- Server ------------------------------------------------------------------------------
 const server = http.createServer(async (req, res) => {
   const started = Date.now();
-  const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  let url;
+  try {
+    url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  } catch {
+    // A malformed Host header (e.g. "a:b:c") used to throw here, outside any try, and
+    // take the whole process down with one request.
+    return json(res, 400, { error: "bad_request", message: "Invalid request" });
+  }
   const ctx = { req, res, url, path: url.pathname, method: req.method === "HEAD" ? "GET" : req.method, params: {}, user: null };
   if (req.method === "HEAD") ctx.method = "HEAD";
   try {
@@ -208,6 +216,13 @@ if (!isDev) {
   }
 }
 
+// Last line of defence: a stray rejection in background work must not stop the server.
+process.on("unhandledRejection", (e) => console.error("[unhandled rejection]", e));
+process.on("uncaughtException", (e) => {
+  console.error("[uncaught exception]", e);
+  setTimeout(() => process.exit(1), 200); // let the log flush; Docker restarts the container
+});
+
 server.keepAliveTimeout = 65_000;
 // Slow-request protection: headers must arrive quickly, whole requests within a minute
 // (uploads are capped at 8 MB so this is generous), and no header floods.
@@ -220,5 +235,6 @@ server.listen(config.port, () => {
   if (config.sessionSecret === "dev-only-change-me" && !isDev) console.warn("!! SESSION_SECRET is the default; set it in .env");
   resumeJobs();
   startUploadMaintenance();
+  refreshCloudflareRanges();
   startDomainWatcher();
 });

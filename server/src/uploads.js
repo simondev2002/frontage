@@ -180,7 +180,7 @@ export function serveImage(ctx) {
     "Access-Control-Allow-Origin": "*",
   });
   if (ctx.method === "HEAD") return ctx.res.end(), true;
-  fs.createReadStream(file).pipe(ctx.res);
+  fs.createReadStream(file).on("error", () => ctx.res.destroy()).pipe(ctx.res);
   return true;
 }
 
